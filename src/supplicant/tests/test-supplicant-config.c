@@ -110,18 +110,25 @@ build_supplicant_config (NMConnection *connection,
 	NMSettingWireless *s_wifi;
 	NMSettingWirelessSecurity *s_wsec;
 	NMSetting8021x *s_8021x;
+	GByteArray *ssid;
 	gboolean success;
 
 	config = nm_supplicant_config_new (support_pmf, support_fils);
 
 	s_wifi = nm_connection_get_setting_wireless (connection);
 	g_assert (s_wifi);
+
+	ssid = g_byte_array_new ();
+	g_byte_array_append (ssid, g_bytes_get_data (nm_setting_wireless_get_ssid (s_wifi), NULL),
+	                           g_bytes_get_size (nm_setting_wireless_get_ssid (s_wifi)));
 	success = nm_supplicant_config_add_setting_wireless (config,
 	                                                     s_wifi,
 	                                                     fixed_freq,
+	                                                     ssid,
 	                                                     &error);
 	g_assert_no_error (error);
 	g_assert (success);
+	g_byte_array_unref (ssid);
 
 	s_wsec = nm_connection_get_setting_wireless_security (connection);
 	if (s_wsec) {

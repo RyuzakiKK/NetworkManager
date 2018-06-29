@@ -2024,7 +2024,9 @@ supplicant_iface_state_cb (NMSupplicantInterface *iface,
 		if (devstate == NM_DEVICE_STATE_CONFIG) {
 			NMConnection *connection;
 			NMSettingWireless *s_wifi;
-			GBytes *ssid;
+			const GByteArray *ssid;
+
+			g_return_if_fail (priv->current_ap);
 
 			connection = nm_device_get_applied_connection (NM_DEVICE (self));
 			g_return_if_fail (connection);
@@ -2032,15 +2034,13 @@ supplicant_iface_state_cb (NMSupplicantInterface *iface,
 			s_wifi = nm_connection_get_setting_wireless (connection);
 			g_return_if_fail (s_wifi);
 
-			ssid = nm_setting_wireless_get_ssid (s_wifi);
+			ssid = nm_wifi_ap_get_ssid (priv->current_ap);
 			g_return_if_fail (ssid);
 
 			_LOGI (LOGD_DEVICE | LOGD_WIFI,
 			       "Activation: (wifi) Stage 2 of 5 (Device Configure) successful.  %s '%s'.",
-			       priv->mode == NM_802_11_MODE_AP ? "Started Wi-Fi Hotspot" :
-			       "Connected to wireless network",
-			       ssid ? nm_utils_escape_ssid (g_bytes_get_data (ssid, NULL),
-			                                    g_bytes_get_size (ssid)) : "(none)");
+			       priv->mode == NM_802_11_MODE_AP ? "Started Wi-Fi Hotspot" : "Connected to wireless network",
+			       nm_utils_escape_ssid (ssid->data, ssid->len));
 			nm_device_activate_schedule_stage3_ip_config_start (device);
 		} else if (devstate == NM_DEVICE_STATE_ACTIVATED)
 			periodic_update (self);
@@ -2345,6 +2345,7 @@ static NMSupplicantConfig *
 build_supplicant_config (NMDeviceWifi *self,
                          NMConnection *connection,
                          guint32 fixed_freq,
+                         const GByteArray *ssid,
                          GError **error)
 {
 	NMDeviceWifiPrivate *priv = NM_DEVICE_WIFI_GET_PRIVATE (self);
@@ -2373,6 +2374,7 @@ build_supplicant_config (NMDeviceWifi *self,
 	if (!nm_supplicant_config_add_setting_wireless (config,
 	                                                s_wireless,
 	                                                fixed_freq,
+	                                                ssid,
 	                                                error)) {
 		g_prefix_error (error, "802-11-wireless: ");
 		goto error;
@@ -2734,7 +2736,10 @@ act_stage2_config (NMDevice *device, NMDeviceStateReason *out_failure_reason)
 		set_powersave (device);
 
 	/* Build up the supplicant configuration */
-	config = build_supplicant_config (self, connection, nm_wifi_ap_get_freq (ap), &error);
+	config = build_supplicant_config (self, connection,
+	                                  nm_wifi_ap_get_freq (ap),
+	                                  nm_wifi_ap_get_ssid (ap),
+	                                  &error);
 	if (config == NULL) {
 		_LOGE (LOGD_DEVICE | LOGD_WIFI,
 		       "Activation: (wifi) couldn't build wireless configuration: %s",

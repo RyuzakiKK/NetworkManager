@@ -53,6 +53,7 @@ GHashTable *nm_supplicant_config_get_blobs (NMSupplicantConfig *self);
 gboolean nm_supplicant_config_add_setting_wireless (NMSupplicantConfig *self,
                                                     NMSettingWireless *setting,
                                                     guint32 fixed_freq,
+                                                    const GByteArray *ssid,
                                                     GError **error);
 
 gboolean nm_supplicant_config_add_bgscan           (NMSupplicantConfig *self,
