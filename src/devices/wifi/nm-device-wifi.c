@@ -2512,6 +2512,7 @@ act_stage1_prepare (NMDevice *device, NMDeviceStateReason *out_failure_reason)
 	NMSettingWireless *s_wireless;
 	const char *mode;
 	const char *ap_path;
+	GBytes *ssid;
 
 	ret = NM_DEVICE_CLASS (nm_device_wifi_parent_class)->act_stage1_prepare (device, out_failure_reason);
 	if (ret != NM_ACT_STAGE_RETURN_SUCCESS)
@@ -2580,7 +2581,9 @@ act_stage1_prepare (NMDevice *device, NMDeviceStateReason *out_failure_reason)
 	 * until the real one is found in the scan list (Ad-Hoc or Hidden), or until
 	 * the device is deactivated (Hotspot).
 	 */
-	ap = nm_wifi_ap_new_fake_from_connection (connection);
+
+	ssid = nm_setting_wireless_get_ssid (s_wireless);
+	ap = nm_wifi_ap_new_fake (connection, ssid);
 	g_return_val_if_fail (ap != NULL, NM_ACT_STAGE_RETURN_FAILURE);
 
 	if (nm_wifi_ap_is_hotspot (ap))
