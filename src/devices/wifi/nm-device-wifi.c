@@ -54,6 +54,7 @@
 #include "nm-wifi-common.h"
 #include "nm-core-internal.h"
 #include "nm-config.h"
+#include "nm-hostname-manager.h"
 
 #include "devices/nm-device-logging.h"
 _LOG_DECLARE_SELF(NMDeviceWifi);
@@ -2583,6 +2584,11 @@ act_stage1_prepare (NMDevice *device, NMDeviceStateReason *out_failure_reason)
 	 */
 
 	ssid = nm_setting_wireless_get_ssid (s_wireless);
+	if (!ssid) {
+		const char *hostname = nm_hostname_manager_get_pretty_hostname (nm_hostname_manager_get ());
+		ssid = g_bytes_new (hostname, strlen (hostname));
+	}
+
 	ap = nm_wifi_ap_new_fake (connection, ssid);
 	g_return_val_if_fail (ap != NULL, NM_ACT_STAGE_RETURN_FAILURE);
 
