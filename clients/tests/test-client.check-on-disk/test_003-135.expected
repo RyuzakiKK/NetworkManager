@@ -2,10 +2,10 @@ location: clients/tests/test-client.py:887:test_003()/135
 cmd: $NMCLI --mode tabular --color yes -f all dev show eth0
 lang: C
 returncode: 0
-stdout: 2743 bytes
+stdout: 2815 bytes
 >>>
-NAME     DEVICE  TYPE      NM-TYPE           VENDOR  PRODUCT  DRIVER   DRIVER-VERSION  FIRMWARE-VERSION  HWADDR             MTU  STATE             REASON               UDI                        IP-IFACE  IS-SOFTWARE  NM-MANAGED  AUTOCONNECT  FIRMWARE-MISSING  NM-PLUGIN-MISSING  PHYS-PORT-ID  CONNECTION  CON-UUID                              CON-PATH                                            METERED 
-GENERAL  eth0    ethernet  NMDeviceEthernet  --      --       virtual  --              --                C0:61:AE:26:4D:D7  0    20 (unavailable)  0 (No reason given)  /sys/devices/virtual/eth0  --        no           yes         yes          no                no                 --            ethernet    UUID-ethernet-REPLACED-REPLACED-REPL  /org/freedesktop/NetworkManager/ActiveConnection/1  unknown 
+NAME     DEVICE  TYPE      NM-TYPE           VENDOR  PRODUCT  DRIVER   DRIVER-VERSION  FIRMWARE-VERSION  HWADDR             MTU  STATE             REASON               IP4-CONNECTIVITY  IP6-CONNECTIVITY  UDI                        IP-IFACE  IS-SOFTWARE  NM-MANAGED  AUTOCONNECT  FIRMWARE-MISSING  NM-PLUGIN-MISSING  PHYS-PORT-ID  CONNECTION  CON-UUID                              CON-PATH                                            METERED 
+GENERAL  eth0    ethernet  NMDeviceEthernet  --      --       virtual  --              --                C0:61:AE:26:4D:D7  0    20 (unavailable)  0 (No reason given)  0 (unknown)       0 (unknown)       /sys/devices/virtual/eth0  --        no           yes         yes          no                no                 --            ethernet    UUID-ethernet-REPLACED-REPLACED-REPL  /org/freedesktop/NetworkManager/ActiveConnection/1  unknown 
 
 NAME          CARRIER-DETECT  SPEED     IS-SOFTWARE  SRIOV 
 CAPABILITIES  no              100 Mb/s  no           no    

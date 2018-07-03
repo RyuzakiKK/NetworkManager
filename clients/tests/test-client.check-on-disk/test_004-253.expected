@@ -2,9 +2,9 @@ location: clients/tests/test-client.py:984:test_004()/253
 cmd: $NMCLI --mode tabular --terse --color yes -f ALL device show wlan0
 lang: C
 returncode: 0
-stdout: 1418 bytes
+stdout: 1442 bytes
 >>>
-GENERAL:wlan0:wifi:NMDeviceWifi:::virtual:::13\:E0\:74\:85\:7C\:D9:0:20 (unavailable):0 (No reason given):/sys/devices/virtual/wlan0::no:yes:yes:no:no::con-vpn-1:UUID-con-vpn-1-REPLACED-REPLACED-REP:/org/freedesktop/NetworkManager/ActiveConnection/2:unknown
+GENERAL:wlan0:wifi:NMDeviceWifi:::virtual:::13\:E0\:74\:85\:7C\:D9:0:20 (unavailable):0 (No reason given):0 (unknown):0 (unknown):/sys/devices/virtual/wlan0::no:yes:yes:no:no::con-vpn-1:UUID-con-vpn-1-REPLACED-REPLACED-REP:/org/freedesktop/NetworkManager/ActiveConnection/2:unknown
 CAPABILITIES:no:unknown:no:no
 WIFI-PROPERTIES:yes:yes:yes:yes:yes:yes:yes:unknown:unknown
 [32mAP[1][0m:[32m [0m:[32mwlan0-ap-2[0m:[32mInfra[0m:[32m1[0m:[32m54 Mbit/s[0m:[32m92[0m:[32m****[0m:[32mWPA1 WPA2[0m

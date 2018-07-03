@@ -2,10 +2,10 @@ location: clients/tests/test-client.py:887:test_003()/136
 cmd: $NMCLI --mode tabular --color yes -f all dev show eth0
 lang: pl_PL.UTF-8
 returncode: 0
-stdout: 2764 bytes
+stdout: 2836 bytes
 >>>
-NAME     DEVICE  TYPE      NM-TYPE           VENDOR  PRODUCT  DRIVER   DRIVER-VERSION  FIRMWARE-VERSION  HWADDR             MTU  STATE             REASON                    UDI                        IP-IFACE  IS-SOFTWARE  NM-MANAGED  AUTOCONNECT  FIRMWARE-MISSING  NM-PLUGIN-MISSING  PHYS-PORT-ID  CONNECTION  CON-UUID                              CON-PATH                                            METERED  
-GENERAL  eth0    ethernet  NMDeviceEthernet  --      --       virtual  --              --                C0:61:AE:26:4D:D7  0    20 (niedostępne)  0 (Nie podano przyczyny)  /sys/devices/virtual/eth0  --        nie          tak         tak          nie               nie                --            ethernet    UUID-ethernet-REPLACED-REPLACED-REPL  /org/freedesktop/NetworkManager/ActiveConnection/1  nieznane 
+NAME     DEVICE  TYPE      NM-TYPE           VENDOR  PRODUCT  DRIVER   DRIVER-VERSION  FIRMWARE-VERSION  HWADDR             MTU  STATE             REASON                    IP4-CONNECTIVITY  IP6-CONNECTIVITY  UDI                        IP-IFACE  IS-SOFTWARE  NM-MANAGED  AUTOCONNECT  FIRMWARE-MISSING  NM-PLUGIN-MISSING  PHYS-PORT-ID  CONNECTION  CON-UUID                              CON-PATH                                            METERED  
+GENERAL  eth0    ethernet  NMDeviceEthernet  --      --       virtual  --              --                C0:61:AE:26:4D:D7  0    20 (niedostępne)  0 (Nie podano przyczyny)  0 (nieznane)      0 (nieznane)      /sys/devices/virtual/eth0  --        nie          tak         tak          nie               nie                --            ethernet    UUID-ethernet-REPLACED-REPLACED-REPL  /org/freedesktop/NetworkManager/ActiveConnection/1  nieznane 
 
 NAME          CARRIER-DETECT  SPEED     IS-SOFTWARE  SRIOV 
 CAPABILITIES  nie             100 Mb/s  nie          nie   

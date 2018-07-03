@@ -2,10 +2,10 @@ location: clients/tests/test-client.py:988:test_004()/185
 cmd: $NMCLI --mode tabular --color yes -f GENERAL,CAPABILITIES,WIFI-PROPERTIES,AP,WIRED-PROPERTIES,WIMAX-PROPERTIES,NSP,IP4,DHCP4,IP6,DHCP6,BOND,TEAM,BRIDGE,VLAN,BLUETOOTH,CONNECTIONS device show wlan0
 lang: C
 returncode: 0
-stdout: 3025 bytes
+stdout: 3097 bytes
 >>>
-NAME     DEVICE  TYPE  NM-TYPE       VENDOR  PRODUCT  DRIVER   DRIVER-VERSION  FIRMWARE-VERSION  HWADDR             MTU  STATE             REASON               UDI                         IP-IFACE  IS-SOFTWARE  NM-MANAGED  AUTOCONNECT  FIRMWARE-MISSING  NM-PLUGIN-MISSING  PHYS-PORT-ID  CONNECTION  CON-UUID                              CON-PATH                                            METERED 
-GENERAL  wlan0   wifi  NMDeviceWifi  --      --       virtual  --              --                13:E0:74:85:7C:D9  0    20 (unavailable)  0 (No reason given)  /sys/devices/virtual/wlan0  --        no           yes         yes          no                no                 --            con-vpn-1   UUID-con-vpn-1-REPLACED-REPLACED-REP  /org/freedesktop/NetworkManager/ActiveConnection/2  unknown 
+NAME     DEVICE  TYPE  NM-TYPE       VENDOR  PRODUCT  DRIVER   DRIVER-VERSION  FIRMWARE-VERSION  HWADDR             MTU  STATE             REASON               IP4-CONNECTIVITY  IP6-CONNECTIVITY  UDI                         IP-IFACE  IS-SOFTWARE  NM-MANAGED  AUTOCONNECT  FIRMWARE-MISSING  NM-PLUGIN-MISSING  PHYS-PORT-ID  CONNECTION  CON-UUID                              CON-PATH                                            METERED 
+GENERAL  wlan0   wifi  NMDeviceWifi  --      --       virtual  --              --                13:E0:74:85:7C:D9  0    20 (unavailable)  0 (No reason given)  0 (unknown)       0 (unknown)       /sys/devices/virtual/wlan0  --        no           yes         yes          no                no                 --            con-vpn-1   UUID-con-vpn-1-REPLACED-REPLACED-REP  /org/freedesktop/NetworkManager/ActiveConnection/2  unknown 
 
 NAME          CARRIER-DETECT  SPEED    IS-SOFTWARE  SRIOV 
 CAPABILITIES  no              unknown  no           no    
