@@ -670,6 +670,7 @@ static gboolean
 _setting_is_string_list (const char *group, const char *key)
 {
 	return    _IS (NM_CONFIG_KEYFILE_GROUP_MAIN, "plugins")
+	       || _IS (NM_CONFIG_KEYFILE_GROUP_MAIN, "dns")
 	       || _IS (NM_CONFIG_KEYFILE_GROUP_MAIN, NM_CONFIG_KEYFILE_KEY_MAIN_DEBUG)
 	       || _IS (NM_CONFIG_KEYFILE_GROUP_LOGGING, "domains")
 	       || g_str_has_prefix (group, NM_CONFIG_KEYFILE_GROUPPREFIX_TEST_APPEND_STRINGLIST);
@@ -786,6 +787,10 @@ read_config (GKeyFile *keyfile, gboolean is_base_config, const char *dirname, co
 							/* we must fill the unspecified value with the compile-time default. */
 							if (nm_streq (group, NM_CONFIG_KEYFILE_GROUP_MAIN) && nm_streq (base_key, "plugins")) {
 								g_key_file_set_value (keyfile, group, base_key, NM_CONFIG_DEFAULT_MAIN_PLUGINS);
+								old_val = g_key_file_get_string_list (keyfile, group, base_key, NULL, NULL);
+							}
+							if (nm_streq (group, NM_CONFIG_KEYFILE_GROUP_MAIN) && nm_streq (base_key, "dns")) {
+								g_key_file_set_value (keyfile, group, base_key, NM_CONFIG_DEFAULT_MAIN_DNS);
 								old_val = g_key_file_get_string_list (keyfile, group, base_key, NULL, NULL);
 							}
 						}

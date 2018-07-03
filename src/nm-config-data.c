@@ -106,7 +106,6 @@ typedef struct {
 	GSList *ignore_carrier;
 	GSList *assume_ipv6ll_only;
 
-	char *dns_mode;
 	char *rc_manager;
 
 	NMGlobalDnsConfig *global_dns;
@@ -306,12 +305,25 @@ nm_config_data_get_no_auto_default_for_device (const NMConfigData *self, NMDevic
 	       || nm_device_spec_match_list (device, priv->no_auto_default.specs_config);
 }
 
-const char *
+char **
 nm_config_data_get_dns_mode (const NMConfigData *self)
 {
+	const NMConfigDataPrivate *priv;
+	char **list;
+
 	g_return_val_if_fail (self, NULL);
 
-	return NM_CONFIG_DATA_GET_PRIVATE (self)->dns_mode;
+	priv = NM_CONFIG_DATA_GET_PRIVATE (self);
+
+	list = g_key_file_get_string_list (priv->keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "dns", NULL, NULL);
+	if (!list) {
+		gs_unref_keyfile GKeyFile *kf = nm_config_create_keyfile ();
+
+		/* let keyfile split the default string according to its own escaping rules. */
+		g_key_file_set_value (kf, NM_CONFIG_KEYFILE_GROUP_MAIN, "dns", NM_CONFIG_DEFAULT_MAIN_DNS);
+		list = g_key_file_get_string_list (kf, NM_CONFIG_KEYFILE_GROUP_MAIN, "dns", NULL, NULL);
+	}
+	return _nm_utils_strv_cleanup (list, TRUE, TRUE, TRUE);
 }
 
 const char *
@@ -597,6 +609,7 @@ static const struct {
 	const char *value;
 } default_values[] = {
 	{ NM_CONFIG_KEYFILE_GROUP_MAIN,    "plugins",                              NM_CONFIG_DEFAULT_MAIN_PLUGINS },
+	{ NM_CONFIG_KEYFILE_GROUP_MAIN,    "dns",                                  NM_CONFIG_DEFAULT_MAIN_DNS },
 	{ NM_CONFIG_KEYFILE_GROUP_MAIN,    "rc-manager",                           NM_CONFIG_DEFAULT_MAIN_RC_MANAGER },
 	{ NM_CONFIG_KEYFILE_GROUP_MAIN,    NM_CONFIG_KEYFILE_KEY_MAIN_AUTH_POLKIT, NM_CONFIG_DEFAULT_MAIN_AUTH_POLKIT },
 	{ NM_CONFIG_KEYFILE_GROUP_MAIN,    NM_CONFIG_KEYFILE_KEY_MAIN_DHCP,        NM_CONFIG_DEFAULT_MAIN_DHCP },
@@ -1461,6 +1474,15 @@ _slist_str_equals (GSList *a, GSList *b)
 	return !a && !b;
 }
 
+static gboolean
+_dns_mode_equals (NMConfigData *old_data, NMConfigData *new_data)
+{
+	gs_strfreev char **old_dns_mode = nm_config_data_get_dns_mode (old_data);
+	gs_strfreev char **new_dns_mode = nm_config_data_get_dns_mode (new_data);
+
+	return _nm_utils_strv_equal (old_dns_mode, new_dns_mode);
+}
+
 NMConfigChangeFlags
 nm_config_data_diff (NMConfigData *old_data, NMConfigData *new_data)
 {
@@ -1493,7 +1515,7 @@ nm_config_data_diff (NMConfigData *old_data, NMConfigData *new_data)
 	    || !_slist_str_equals (priv_old->no_auto_default.specs_config, priv_new->no_auto_default.specs_config))
 		changes |= NM_CONFIG_CHANGE_NO_AUTO_DEFAULT;
 
-	if (g_strcmp0 (nm_config_data_get_dns_mode (old_data), nm_config_data_get_dns_mode (new_data)))
+	if (!_dns_mode_equals (old_data, new_data))
 		changes |= NM_CONFIG_CHANGE_DNS_MODE;
 
 	if (g_strcmp0 (nm_config_data_get_rc_manager (old_data), nm_config_data_get_rc_manager (new_data)))
@@ -1638,7 +1660,6 @@ constructed (GObject *object)
 	priv->connectivity.interval = _nm_utils_ascii_str_to_int64 (str, 10, 0, G_MAXUINT, NM_CONFIG_DEFAULT_CONNECTIVITY_INTERVAL);
 	g_free (str);
 
-	priv->dns_mode = nm_strstrip (g_key_file_get_string (priv->keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "dns", NULL));
 	priv->rc_manager = nm_strstrip (g_key_file_get_string (priv->keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "rc-manager", NULL));
 
 	priv->ignore_carrier = nm_config_get_match_spec (priv->keyfile, NM_CONFIG_KEYFILE_GROUP_MAIN, "ignore-carrier", NULL);
@@ -1713,7 +1734,6 @@ finalize (GObject *gobject)
 	g_slist_free_full (priv->no_auto_default.specs_config, g_free);
 	g_strfreev (priv->no_auto_default.arr);
 
-	g_free (priv->dns_mode);
 	g_free (priv->rc_manager);
 
 	g_slist_free_full (priv->ignore_carrier, g_free);

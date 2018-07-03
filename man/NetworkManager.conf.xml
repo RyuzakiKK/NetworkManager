@@ -306,15 +306,13 @@ no-auto-default=*
       </varlistentry>
       <varlistentry>
         <term><varname>dns</varname></term>
-        <listitem><para>Set the DNS (<filename>resolv.conf</filename>) processing mode.
-        If the key is unspecified, <literal>default</literal> is used,
-        unless <filename>/etc/resolv.conf</filename> is a symlink to
-        <filename>/run/systemd/resolve/stub-resolv.conf</filename>,
-        <filename>/run/systemd/resolve/resolv.conf</filename>,
-        <filename>/lib/systemd/resolv.conf</filename> or
-        <filename>/usr/lib/systemd/resolv.conf</filename>.
-        In that case, <literal>systemd-resolved</literal> is chosen automatically.
-        </para>
+        <listitem><para>Configures the processing mode of DNS information known to
+        NetworkManager. Takes a value in
+        <arg choice='plain'><replaceable>mode</replaceable></arg><arg>,systemd-resolved</arg>
+        form. The primary <replaceable>mode</replaceable> influences how is the system's
+        <filename>resolv.conf</filename> managed, while the supplementary systemd-resolved
+        mode allows passing the DNS configuration to systemd-resolved even if it's not
+        configured as a primary resolver. The following modes are available:</para>
         <para><literal>default</literal>: NetworkManager will update
         <filename>/etc/resolv.conf</filename> to reflect the nameservers
         provided by currently active connections.</para>
@@ -340,6 +338,15 @@ no-auto-default=*
         <para><literal>none</literal>: NetworkManager will not
         modify resolv.conf. This implies
         <literal>rc-manager</literal>&nbsp;<literal>unmanaged</literal></para>
+        <para>
+        If the key is unspecified, <literal>default,systemd-resolved</literal> is used,
+        unless <filename>/etc/resolv.conf</filename> is a symlink to
+        <filename>/run/systemd/resolve/stub-resolv.conf</filename>,
+        <filename>/run/systemd/resolve/resolv.conf</filename>,
+        <filename>/lib/systemd/resolv.conf</filename> or
+        <filename>/usr/lib/systemd/resolv.conf</filename>.
+        In that case, <literal>systemd-resolved</literal> is chosen automatically.
+        </para>
         </listitem>
       </varlistentry>
 

@@ -38,6 +38,8 @@
 /* Signals */
 #define NM_CONFIG_SIGNAL_CONFIG_CHANGED             "config-changed"
 
+#define NM_CONFIG_DEFAULT_MAIN_DNS "default,systemd-resolved"
+
 #define NM_CONFIG_DEFAULT_CONNECTIVITY_INTERVAL 300
 #define NM_CONFIG_DEFAULT_CONNECTIVITY_RESPONSE "NetworkManager is online" /* NOT LOCALIZED */
 

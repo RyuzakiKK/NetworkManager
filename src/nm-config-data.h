@@ -168,7 +168,7 @@ int nm_config_data_get_autoconnect_retries_default (const NMConfigData *config_d
 const char *const*nm_config_data_get_no_auto_default (const NMConfigData *config_data);
 gboolean          nm_config_data_get_no_auto_default_for_device (const NMConfigData *self, NMDevice *device);
 
-const char *nm_config_data_get_dns_mode (const NMConfigData *self);
+char **nm_config_data_get_dns_mode (const NMConfigData *self);
 const char *nm_config_data_get_rc_manager (const NMConfigData *self);
 
 gboolean nm_config_data_get_ignore_carrier (const NMConfigData *self, NMDevice *device);
