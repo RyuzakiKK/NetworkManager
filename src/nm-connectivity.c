@@ -74,6 +74,8 @@ struct _NMConnectivityCheckHandle {
 
 		int ifindex;
 		GCancellable *resolve_cancellable;
+		CURLM *curl_mhandle;
+		guint curl_timer;
 		CURL *curl_ehandle;
 		struct curl_slist *request_headers;
 		struct curl_slist *hosts;
@@ -102,12 +104,6 @@ typedef struct {
 	gboolean enabled;
 	guint interval;
 	NMConfig *config;
-#if WITH_CONCHECK
-	struct {
-		CURLM *curl_mhandle;
-		guint curl_timer;
-	} concheck;
-#endif
 } NMConnectivityPrivate;
 
 struct _NMConnectivity {
@@ -197,8 +193,6 @@ cb_data_free (NMConnectivityCheckHandle *cb_data,
 
 #if WITH_CONCHECK
 	if (cb_data->concheck.curl_ehandle) {
-		NMConnectivityPrivate *priv;
-
 		/* Contrary to what cURL manual claim it is *not* safe to remove
 		 * the easy handle "at any moment"; specifically not from the
 		 * write function. Thus here we just dissociate the cb_data from
@@ -211,14 +205,15 @@ cb_data_free (NMConnectivityCheckHandle *cb_data,
 		curl_easy_setopt (cb_data->concheck.curl_ehandle, CURLOPT_PRIVATE, NULL);
 		curl_easy_setopt (cb_data->concheck.curl_ehandle, CURLOPT_HTTPHEADER, NULL);
 
-		priv = NM_CONNECTIVITY_GET_PRIVATE (self);
-
-		curl_multi_remove_handle (priv->concheck.curl_mhandle, cb_data->concheck.curl_ehandle);
+		curl_multi_remove_handle (cb_data->concheck.curl_mhandle,
+		                          cb_data->concheck.curl_ehandle);
 		curl_easy_cleanup (cb_data->concheck.curl_ehandle);
+		curl_multi_cleanup (cb_data->concheck.curl_mhandle);
 
 		curl_slist_free_all (cb_data->concheck.request_headers);
 		curl_slist_free_all (cb_data->concheck.hosts);
 	}
+	nm_clear_g_source (&cb_data->concheck.curl_timer);
 	nm_clear_g_cancellable (&cb_data->concheck.resolve_cancellable);
 #endif
 
@@ -304,31 +299,28 @@ curl_check_connectivity (CURLM *mhandle, int sockfd, int ev_bitmask)
 static gboolean
 curl_timeout_cb (gpointer user_data)
 {
-	gs_unref_object NMConnectivity *self = g_object_ref (NM_CONNECTIVITY (user_data));
-	NMConnectivityPrivate *priv = NM_CONNECTIVITY_GET_PRIVATE (self);
+	NMConnectivityCheckHandle *cb_data = user_data;
 
-	priv->concheck.curl_timer = 0;
-	curl_check_connectivity (priv->concheck.curl_mhandle, CURL_SOCKET_TIMEOUT, 0);
+	cb_data->concheck.curl_timer = 0;
+	curl_check_connectivity (cb_data->concheck.curl_mhandle, CURL_SOCKET_TIMEOUT, 0);
 	return G_SOURCE_REMOVE;
 }
 
 static int
 multi_timer_cb (CURLM *multi, long timeout_ms, void *userdata)
 {
-	NMConnectivity *self = NM_CONNECTIVITY (userdata);
-	NMConnectivityPrivate *priv = NM_CONNECTIVITY_GET_PRIVATE (self);
+	NMConnectivityCheckHandle *cb_data = userdata;
 
-	nm_clear_g_source (&priv->concheck.curl_timer);
+	nm_clear_g_source (&cb_data->concheck.curl_timer);
 	if (timeout_ms != -1)
-		priv->concheck.curl_timer = g_timeout_add (timeout_ms, curl_timeout_cb, self);
+		cb_data->concheck.curl_timer = g_timeout_add (timeout_ms, curl_timeout_cb, cb_data);
 	return 0;
 }
 
 static gboolean
 curl_socketevent_cb (GIOChannel *ch, GIOCondition condition, gpointer user_data)
 {
-	gs_unref_object NMConnectivity *self = g_object_ref (NM_CONNECTIVITY (user_data));
-	NMConnectivityPrivate *priv = NM_CONNECTIVITY_GET_PRIVATE (self);
+	NMConnectivityCheckHandle *cb_data = user_data;
 	int fd = g_io_channel_unix_get_fd (ch);
 	int action = 0;
 
@@ -339,7 +331,7 @@ curl_socketevent_cb (GIOChannel *ch, GIOCondition condition, gpointer user_data)
 	if (condition & G_IO_ERR)
 		action |= CURL_CSELECT_ERR;
 
-	curl_check_connectivity (priv->concheck.curl_mhandle, fd, action);
+	curl_check_connectivity (cb_data->concheck.curl_mhandle, fd, action);
 	return G_SOURCE_CONTINUE;
 }
 
@@ -351,14 +343,13 @@ typedef struct {
 static int
 multi_socket_cb (CURL *e_handle, curl_socket_t s, int what, void *userdata, void *socketp)
 {
-	NMConnectivity *self = NM_CONNECTIVITY (userdata);
-	NMConnectivityPrivate *priv = NM_CONNECTIVITY_GET_PRIVATE (self);
+	NMConnectivityCheckHandle *cb_data = userdata;
 	CurlSockData *fdp = socketp;
 	GIOCondition condition = 0;
 
 	if (what == CURL_POLL_REMOVE) {
 		if (fdp) {
-			curl_multi_assign (priv->concheck.curl_mhandle, s, NULL);
+			curl_multi_assign (cb_data->concheck.curl_mhandle, s, NULL);
 			nm_clear_g_source (&fdp->ev);
 			g_io_channel_unref (fdp->ch);
 			g_slice_free (CurlSockData, fdp);
@@ -367,7 +358,7 @@ multi_socket_cb (CURL *e_handle, curl_socket_t s, int what, void *userdata, void
 		if (!fdp) {
 			fdp = g_slice_new0 (CurlSockData);
 			fdp->ch = g_io_channel_unix_new (s);
-			curl_multi_assign (priv->concheck.curl_mhandle, s, fdp);
+			curl_multi_assign (cb_data->concheck.curl_mhandle, s, fdp);
 		} else
 			nm_clear_g_source (&fdp->ev);
 
@@ -379,7 +370,7 @@ multi_socket_cb (CURL *e_handle, curl_socket_t s, int what, void *userdata, void
 			condition = G_IO_IN | G_IO_OUT;
 
 		if (condition)
-			fdp->ev = g_io_add_watch (fdp->ch, condition, curl_socketevent_cb, self);
+			fdp->ev = g_io_add_watch (fdp->ch, condition, curl_socketevent_cb, cb_data);
 	}
 
 	return CURLM_OK;
@@ -472,14 +463,34 @@ static void
 do_curl_request (NMConnectivityCheckHandle *cb_data)
 {
 	NMConnectivityPrivate *priv = NM_CONNECTIVITY_GET_PRIVATE (cb_data->self);
+	CURLM *mhandle;
 	CURL *ehandle;
 	long resolve;
 
-	ehandle = curl_easy_init ();
-	if (!ehandle) {
+	mhandle = curl_multi_init ();
+	if (!mhandle) {
 		cb_data_free (cb_data, NM_CONNECTIVITY_ERROR, NULL, "curl error");
 		return;
 	}
+
+	ehandle = curl_easy_init ();
+	if (!ehandle) {
+		curl_multi_cleanup (mhandle);
+		cb_data_free (cb_data, NM_CONNECTIVITY_ERROR, NULL, "curl error");
+		return;
+	}
+
+	cb_data->concheck.response = g_strdup (priv->response);
+	cb_data->concheck.curl_mhandle = mhandle;
+	cb_data->concheck.curl_ehandle = ehandle;
+	cb_data->concheck.request_headers = curl_slist_append (NULL, "Connection: close");
+	cb_data->timeout_id = g_timeout_add_seconds (20, _timeout_cb, cb_data);
+
+	curl_multi_setopt (mhandle, CURLMOPT_SOCKETFUNCTION, multi_socket_cb);
+	curl_multi_setopt (mhandle, CURLMOPT_SOCKETDATA, cb_data);
+	curl_multi_setopt (mhandle, CURLMOPT_TIMERFUNCTION, multi_timer_cb);
+	curl_multi_setopt (mhandle, CURLMOPT_TIMERDATA, cb_data);
+	curl_multi_setopt (mhandle, CURLOPT_VERBOSE, 1);
 
 	switch (cb_data->addr_family) {
 	case AF_INET:
@@ -496,11 +507,6 @@ do_curl_request (NMConnectivityCheckHandle *cb_data)
 		g_warn_if_reached ();
 	}
 
-	cb_data->concheck.response = g_strdup (priv->response);
-	cb_data->concheck.curl_ehandle = ehandle;
-	cb_data->concheck.request_headers = curl_slist_append (NULL, "Connection: close");
-	cb_data->timeout_id = g_timeout_add_seconds (20, _timeout_cb, cb_data);
-
 	curl_easy_setopt (ehandle, CURLOPT_URL, priv->uri);
 	curl_easy_setopt (ehandle, CURLOPT_WRITEFUNCTION, easy_write_cb);
 	curl_easy_setopt (ehandle, CURLOPT_WRITEDATA, cb_data);
@@ -512,7 +518,7 @@ do_curl_request (NMConnectivityCheckHandle *cb_data)
 	curl_easy_setopt (ehandle, CURLOPT_RESOLVE, cb_data->concheck.hosts);
 	curl_easy_setopt (ehandle, CURLOPT_IPRESOLVE, resolve);
 
-	curl_multi_add_handle (priv->concheck.curl_mhandle, ehandle);
+	curl_multi_add_handle (mhandle, ehandle);
 }
 
 static void
@@ -808,11 +814,8 @@ update_config (NMConnectivity *self, NMConfigData *config_data)
 
 	enabled = FALSE;
 #if WITH_CONCHECK
-	/* connectivity checking also requires a valid URI, interval and
-	 * curl_mhandle */
 	if (   priv->uri
-	    && priv->interval
-	    && priv->concheck.curl_mhandle)
+	    && priv->interval)
 		enabled = nm_config_data_get_connectivity_enabled (config_data);
 #endif
 
@@ -865,18 +868,9 @@ nm_connectivity_init (NMConnectivity *self)
 
 #if WITH_CONCHECK
 	ret = curl_global_init (CURL_GLOBAL_ALL);
-	if (ret == CURLE_OK)
-		priv->concheck.curl_mhandle = curl_multi_init ();
-
-	if (!priv->concheck.curl_mhandle) {
+	if (!ret == CURLE_OK) {
 		 _LOGE ("unable to init cURL, connectivity check will not work: (%d) %s",
 		        ret, curl_easy_strerror (ret));
-	} else {
-		curl_multi_setopt (priv->concheck.curl_mhandle, CURLMOPT_SOCKETFUNCTION, multi_socket_cb);
-		curl_multi_setopt (priv->concheck.curl_mhandle, CURLMOPT_SOCKETDATA, self);
-		curl_multi_setopt (priv->concheck.curl_mhandle, CURLMOPT_TIMERFUNCTION, multi_timer_cb);
-		curl_multi_setopt (priv->concheck.curl_mhandle, CURLMOPT_TIMERDATA, self);
-		curl_multi_setopt (priv->concheck.curl_mhandle, CURLOPT_VERBOSE, 1);
 	}
 #endif
 
@@ -906,9 +900,6 @@ again:
 	g_clear_pointer (&priv->response, g_free);
 
 #if WITH_CONCHECK
-	nm_clear_g_source (&priv->concheck.curl_timer);
-
-	curl_multi_cleanup (priv->concheck.curl_mhandle);
 	curl_global_cleanup ();
 #endif
 
