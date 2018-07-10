@@ -2686,7 +2686,7 @@ nm_utils_sriov_vf_to_str (const NMSriovVF *vf, gboolean omit_index, GError **err
 		g_string_append_printf (str, "%u", nm_sriov_vf_get_index (vf));
 
 	names = nm_sriov_vf_get_attribute_names (vf);
-	num_attrs = g_strv_length ((char **) names);
+	num_attrs = names ? g_strv_length ((char **) names) : 0;
 	values = g_new0 (NMUtilsNamedValue, num_attrs);
 
 	for (i = 0; i < num_attrs; i++) {
