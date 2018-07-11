@@ -2161,6 +2161,8 @@ write_sriov_setting (NMConnection *connection, shvarFile *ifcfg)
 	b = nm_setting_sriov_get_autoprobe_drivers (s_sriov);
 	if (b != NM_TERNARY_DEFAULT)
 		svSetValueInt64 (ifcfg, "SRIOV_AUTOPROBE_DRIVERS", b);
+	else
+		svUnsetValue (ifcfg, "SRIOV_AUTOPROBE_DRIVERS");
 
 	num = nm_setting_sriov_get_num_vfs (s_sriov);
 	for (i = 0; i < num; i++) {
