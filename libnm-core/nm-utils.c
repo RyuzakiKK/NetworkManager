@@ -2744,10 +2744,16 @@ _nm_sriov_vf_parse_vlans (NMSriovVF *vf, const char *str, GError **error)
 
 	for (i = 0; vlans[i]; i++) {
 		gs_strfreev char **params = NULL;
-		guint id = 0;
-		guint32 qos;
+		guint id = G_MAXUINT;
+		gint64 qos = -1;
 
-		params = g_strsplit (vlans[i], ".", 3);
+		/* we accept leading/trailing whitespace around vlans[1]. Hence
+		 * the nm_str_skip_leading_spaces() and g_strchomp() below.
+		 *
+		 * However, we don't accept any whitespace inside the specifier.
+		 * Hence the NM_STRCHAR_ALL() checks. */
+
+		params = g_strsplit (nm_str_skip_leading_spaces (vlans[i]), ".", 3);
 		if (!params || !params[0] || *params[0] == '\0') {
 			g_set_error_literal (error,
 			                     NM_CONNECTION_ERROR,
@@ -2755,8 +2761,12 @@ _nm_sriov_vf_parse_vlans (NMSriovVF *vf, const char *str, GError **error)
 			                     "empty VF VLAN");
 			return FALSE;
 		}
-		id = _nm_utils_ascii_str_to_int64 (params[0], 0, 0, 4095, 0);
-		if (errno) {
+
+		if (!params[1])
+			g_strchomp (params[0]);
+		if (NM_STRCHAR_ALL (params[0], ch, ch == 'x' || g_ascii_isdigit (ch)))
+			id = _nm_utils_ascii_str_to_int64 (params[0], 0, 0, 4095, G_MAXUINT);
+		if (id == G_MAXUINT) {
 			g_set_error (error,
 			             NM_CONNECTION_ERROR,
 			             NM_CONNECTION_ERROR_FAILED,
@@ -2775,8 +2785,12 @@ _nm_sriov_vf_parse_vlans (NMSriovVF *vf, const char *str, GError **error)
 
 		if (!params[1])
 			continue;
-		qos = _nm_utils_ascii_str_to_int64 (params[1], 0, 0, G_MAXUINT32, 0);
-		if (errno) {
+
+		if (!params[2])
+			g_strchomp (params[1]);
+		if (NM_STRCHAR_ALL (params[1], ch, ch == 'x' || g_ascii_isdigit (ch)))
+			qos = _nm_utils_ascii_str_to_int64 (params[1], 0, 0, G_MAXUINT32, -1);
+		if (qos == -1) {
 			g_set_error (error,
 			             NM_CONNECTION_ERROR,
 			             NM_CONNECTION_ERROR_FAILED,
@@ -2788,6 +2802,9 @@ _nm_sriov_vf_parse_vlans (NMSriovVF *vf, const char *str, GError **error)
 
 		if (!params[2])
 			continue;
+
+		g_strchomp (params[2]);
+
 		if (nm_streq (params[2], "ad"))
 			nm_sriov_vf_set_vlan_protocol (vf, id, NM_SRIOV_VF_VLAN_PROTOCOL_802_1AD);
 		else if (nm_streq (params[2], "q"))
