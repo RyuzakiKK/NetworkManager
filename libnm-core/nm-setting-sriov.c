@@ -33,8 +33,8 @@
  */
 struct _NMSettingSriov {
 	NMSetting parent;
-	guint total_vfs;
 	GPtrArray *vfs;
+	guint total_vfs;
 	NMTernary autoprobe_drivers;
 };
 
