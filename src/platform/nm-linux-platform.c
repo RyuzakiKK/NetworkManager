@@ -5592,7 +5592,7 @@ link_set_sriov_params (NMPlatform *platform,
 	                                                                      ifname,
 	                                                                      "device/sriov_totalvfs"),
 	                                            10, 0, G_MAXUINT, 0);
-	if (total < 1)
+	if (errno)
 		return FALSE;
 	if (num_vfs > total) {
 		_LOGW ("link: %d only supports %u VFs (requested %u)", ifindex, total, num_vfs);
