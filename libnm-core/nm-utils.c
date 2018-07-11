@@ -2848,7 +2848,7 @@ _nm_utils_sriov_vf_from_strparts (const char *index, const char *detail, GError 
 	GVariant *variant;
 	gs_unref_hashtable GHashTable *ht = NULL;
 
-	n_index = _nm_utils_ascii_str_to_int64 (index, 10, 0, G_MAXUINT32, -1);
+	n_index = _nm_utils_ascii_str_to_int64 (index, 10, 0, G_MAXUINT32, 0);
 	if (errno) {
 		g_set_error_literal (error,
 		                     NM_CONNECTION_ERROR,
