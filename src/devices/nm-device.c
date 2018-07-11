@@ -5945,7 +5945,7 @@ act_stage1_prepare (NMDevice *self, NMDeviceStateReason *out_failure_reason)
 	if (   priv->ifindex > 0
 	    && nm_device_has_capability (self, NM_DEVICE_CAP_SRIOV)
 	    && (s_sriov = (NMSettingSriov *) nm_device_get_applied_setting (self, NM_TYPE_SETTING_SRIOV))) {
-		gs_strfreev NMPlatformVF **plat_vfs = NULL;
+		nm_auto_freev NMPlatformVF **plat_vfs = NULL;
 		gs_free_error GError *error = NULL;
 		gs_free const char *str = NULL;
 		NMSriovVF *vf;
