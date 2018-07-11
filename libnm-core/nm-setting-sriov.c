@@ -820,7 +820,7 @@ nm_setting_sriov_remove_vf (NMSettingSriov *setting, guint idx)
  *
  * Removes the VF with VF index @index.
  *
- * Returns: %TRUE if the route was found and removed; %FALSE if it was not
+ * Returns: %TRUE if the VF was found and removed; %FALSE if it was not
  *
  * Since: 1.14
  **/
