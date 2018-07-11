@@ -5580,8 +5580,6 @@ link_set_sriov_params (NMPlatform *platform,
 	char ifname[IFNAMSIZ];
 	char buf[64];
 
-	g_return_val_if_fail (NM_IN_SET (autoprobe, -1, 0, 1), FALSE);
-
 	if (!nm_platform_netns_push (platform, &netns))
 		return FALSE;
 
