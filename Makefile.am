@@ -449,6 +449,7 @@ libnm_core_lib_h_pub_real = \
 	libnm-core/nm-setting-connection.h \
 	libnm-core/nm-setting-dcb.h \
 	libnm-core/nm-setting-dummy.h \
+	libnm-core/nm-setting-ethtool.h \
 	libnm-core/nm-setting-generic.h \
 	libnm-core/nm-setting-gsm.h \
 	libnm-core/nm-setting-infiniband.h \
@@ -503,6 +504,7 @@ libnm_core_lib_h_priv = \
 	libnm-core/nm-connection-private.h \
 	libnm-core/nm-core-internal.h \
 	libnm-core/nm-core-types-internal.h \
+	libnm-core/nm-ethtool-utils.h \
 	libnm-core/nm-keyfile-internal.h \
 	libnm-core/nm-keyfile-utils.h \
 	libnm-core/nm-property-compare.h \
@@ -520,6 +522,7 @@ libnm_core_lib_c_settings_real = \
 	libnm-core/nm-setting-connection.c \
 	libnm-core/nm-setting-dcb.c \
 	libnm-core/nm-setting-dummy.c \
+	libnm-core/nm-setting-ethtool.c \
 	libnm-core/nm-setting-generic.c \
 	libnm-core/nm-setting-gsm.c \
 	libnm-core/nm-setting-infiniband.c \
@@ -566,6 +569,7 @@ libnm_core_lib_c_real = \
 	libnm-core/nm-connection.c \
 	libnm-core/nm-dbus-utils.c \
 	libnm-core/nm-errors.c \
+	libnm-core/nm-ethtool-utils.c \
 	libnm-core/nm-keyfile.c \
 	libnm-core/nm-keyfile-utils.c \
 	libnm-core/nm-property-compare.c \

@@ -1401,6 +1401,14 @@ global:
 	nm_setting_sriov_new;
 	nm_setting_sriov_remove_vf;
 	nm_setting_sriov_remove_vf_by_index;
+	nm_setting_ethtool_clear_offload_features;
+	nm_setting_ethtool_get_offload_feature;
+	nm_setting_ethtool_get_offload_features;
+	nm_setting_ethtool_get_type;
+	nm_setting_ethtool_new;
+	nm_setting_ethtool_offload_feature_from_string;
+	nm_setting_ethtool_offload_feature_to_string;
+	nm_setting_ethtool_set_offload_feature;
 	nm_setting_wpan_get_type;
 	nm_sriov_vf_add_vlan;
 	nm_sriov_vf_dup;

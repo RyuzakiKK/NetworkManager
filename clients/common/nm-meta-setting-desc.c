@@ -5768,6 +5768,12 @@ static const NMMetaPropertyInfo *const property_infos_DCB[] = {
 };
 
 #undef  _CURRENT_NM_META_SETTING_TYPE
+#define _CURRENT_NM_META_SETTING_TYPE NM_META_SETTING_TYPE_ETHTOOL
+static const NMMetaPropertyInfo *const property_infos_ETHTOOL[] = {
+	NULL
+};
+
+#undef  _CURRENT_NM_META_SETTING_TYPE
 #define _CURRENT_NM_META_SETTING_TYPE NM_META_SETTING_TYPE_GSM
 static const NMMetaPropertyInfo *const property_infos_GSM[] = {
 	PROPERTY_INFO_WITH_DESC (NM_SETTING_GSM_NUMBER,
@@ -7732,6 +7738,7 @@ _setting_init_fcn_wireless (ARGS_SETTING_INIT_FCN)
 #define SETTING_PRETTY_NAME_CONNECTION          N_("General settings")
 #define SETTING_PRETTY_NAME_DCB                 N_("DCB settings")
 #define SETTING_PRETTY_NAME_DUMMY               N_("Dummy settings")
+#define SETTING_PRETTY_NAME_ETHTOOL             N_("Ethtool settings")
 #define SETTING_PRETTY_NAME_GENERIC             N_("Generic settings")
 #define SETTING_PRETTY_NAME_GSM                 N_("GSM mobile broadband connection")
 #define SETTING_PRETTY_NAME_INFINIBAND          N_("InfiniBand connection")
@@ -7840,6 +7847,7 @@ const NMMetaSettingInfoEditor nm_meta_setting_infos_editor[] = {
 	),
 	SETTING_INFO (CONNECTION),
 	SETTING_INFO (DCB),
+	SETTING_INFO (ETHTOOL),
 	SETTING_INFO_EMPTY (DUMMY,
 		.valid_parts = NM_META_SETTING_VALID_PARTS (
 			NM_META_SETTING_VALID_PART_ITEM (CONNECTION,            TRUE),
@@ -8000,6 +8008,7 @@ const NMMetaSettingInfoEditor nm_meta_setting_infos_editor[] = {
 			NM_META_SETTING_VALID_PART_ITEM (802_1X,                FALSE),
 			NM_META_SETTING_VALID_PART_ITEM (DCB,                   FALSE),
 			NM_META_SETTING_VALID_PART_ITEM (SRIOV,                 FALSE),
+			NM_META_SETTING_VALID_PART_ITEM (ETHTOOL,               FALSE),
 		),
 	),
 	SETTING_INFO (WIRELESS,
@@ -8009,6 +8018,7 @@ const NMMetaSettingInfoEditor nm_meta_setting_infos_editor[] = {
 			NM_META_SETTING_VALID_PART_ITEM (WIRELESS,              TRUE),
 			NM_META_SETTING_VALID_PART_ITEM (WIRELESS_SECURITY,     FALSE),
 			NM_META_SETTING_VALID_PART_ITEM (802_1X,                FALSE),
+			NM_META_SETTING_VALID_PART_ITEM (ETHTOOL,               FALSE),
 		),
 		.setting_init_fcn =             _setting_init_fcn_wireless,
 	),

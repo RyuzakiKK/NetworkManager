@@ -213,6 +213,12 @@ const NMMetaSettingInfo nm_meta_setting_infos[] = {
 		.setting_name =             NM_SETTING_DUMMY_SETTING_NAME,
 		.get_setting_gtype =        nm_setting_dummy_get_type,
 	},
+	[NM_META_SETTING_TYPE_ETHTOOL] = {
+		.meta_type =                NM_META_SETTING_TYPE_ETHTOOL,
+		.setting_priority =         NM_SETTING_PRIORITY_AUX,
+		.setting_name =             NM_SETTING_ETHTOOL_SETTING_NAME,
+		.get_setting_gtype =        nm_setting_ethtool_get_type,
+	},
 	[NM_META_SETTING_TYPE_GENERIC] = {
 		.meta_type =                NM_META_SETTING_TYPE_GENERIC,
 		.setting_priority =         NM_SETTING_PRIORITY_HW_BASE,

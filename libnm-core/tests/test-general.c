@@ -2619,6 +2619,7 @@ test_connection_diff_a_only (void)
 			{ NM_SETTING_WIRED_GENERATE_MAC_ADDRESS_MASK, NM_SETTING_DIFF_RESULT_IN_A },
 			{ NM_SETTING_WIRED_MAC_ADDRESS_BLACKLIST, NM_SETTING_DIFF_RESULT_IN_A },
 			{ NM_SETTING_WIRED_MTU,                   NM_SETTING_DIFF_RESULT_IN_A },
+			{ NM_SETTING_WIRED_OFFLOAD_FEATURE,       NM_SETTING_DIFF_RESULT_IN_A },
 			{ NM_SETTING_WIRED_S390_SUBCHANNELS,      NM_SETTING_DIFF_RESULT_IN_A },
 			{ NM_SETTING_WIRED_S390_NETTYPE,          NM_SETTING_DIFF_RESULT_IN_A },
 			{ NM_SETTING_WIRED_S390_OPTIONS,          NM_SETTING_DIFF_RESULT_IN_A },
@@ -7057,6 +7058,15 @@ test_nm_va_args_macros (void)
 
 /*****************************************************************************/
 
+static void
+test_ethtool_offload (void)
+{
+	g_assert_cmpint (nm_ethtool_offload_id_from_name ("invalid"), ==, NM_ETHTOOL_OFFLOAD_ID_UNKNOWN);
+	g_assert_cmpint (nm_ethtool_offload_id_from_name ("rx"),      ==, NM_ETHTOOL_OFFLOAD_ID_RX);
+}
+
+/*****************************************************************************/
+
 NMTST_DEFINE ();
 
 int main (int argc, char **argv)
@@ -7211,8 +7221,8 @@ int main (int argc, char **argv)
 	g_test_add_func ("/core/general/route_attributes/format", test_route_attributes_format);
 
 	g_test_add_func ("/core/general/get_start_time_for_pid", test_get_start_time_for_pid);
-
 	g_test_add_func ("/core/general/test_nm_va_args_macros", test_nm_va_args_macros);
+	g_test_add_func ("/core/general/test_ethtool_offload", test_ethtool_offload);
 
 	return g_test_run ();
 }
