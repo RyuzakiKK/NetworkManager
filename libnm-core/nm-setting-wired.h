@@ -79,6 +79,22 @@ typedef enum { /*< flags >*/
 	NM_SETTING_WIRED_WAKE_ON_LAN_EXCLUSIVE_FLAGS = NM_SETTING_WIRED_WAKE_ON_LAN_DEFAULT | NM_SETTING_WIRED_WAKE_ON_LAN_IGNORE, /*< skip >*/
 } NMSettingWiredWakeOnLan;
 
+/*****************************************************************************/
+
+#define NM_ETHTOOL_OFFLOAD_FEATURE_RX                 "rx"
+#define NM_ETHTOOL_OFFLOAD_FEATURE_TX                 "tx"
+#define NM_ETHTOOL_OFFLOAD_FEATURE_SG                 "sg"
+#define NM_ETHTOOL_OFFLOAD_FEATURE_TSO                "tso"
+#define NM_ETHTOOL_OFFLOAD_FEATURE_GSO                "gso"
+#define NM_ETHTOOL_OFFLOAD_FEATURE_GRO                "gro"
+#define NM_ETHTOOL_OFFLOAD_FEATURE_LRO                "lro"
+#define NM_ETHTOOL_OFFLOAD_FEATURE_RXVLAN             "rxvlan"
+#define NM_ETHTOOL_OFFLOAD_FEATURE_TXVLAN             "txvlan"
+#define NM_ETHTOOL_OFFLOAD_FEATURE_NTUPLE             "ntuple"
+#define NM_ETHTOOL_OFFLOAD_FEATURE_RXHASH             "rxhash"
+
+/*****************************************************************************/
+
 #define NM_SETTING_WIRED_PORT "port"
 #define NM_SETTING_WIRED_SPEED "speed"
 #define NM_SETTING_WIRED_DUPLEX "duplex"
@@ -88,6 +104,7 @@ typedef enum { /*< flags >*/
 #define NM_SETTING_WIRED_GENERATE_MAC_ADDRESS_MASK "generate-mac-address-mask"
 #define NM_SETTING_WIRED_MAC_ADDRESS_BLACKLIST "mac-address-blacklist"
 #define NM_SETTING_WIRED_MTU "mtu"
+#define NM_SETTING_WIRED_OFFLOAD_FEATURE "offload-feature"
 #define NM_SETTING_WIRED_S390_SUBCHANNELS "s390-subchannels"
 #define NM_SETTING_WIRED_S390_NETTYPE "s390-nettype"
 #define NM_SETTING_WIRED_S390_OPTIONS "s390-options"
@@ -134,6 +151,18 @@ void              nm_setting_wired_remove_mac_blacklist_item   (NMSettingWired *
 gboolean          nm_setting_wired_remove_mac_blacklist_item_by_value (NMSettingWired *setting,
                                                                        const char *mac);
 void              nm_setting_wired_clear_mac_blacklist_items   (NMSettingWired *setting);
+
+NM_AVAILABLE_IN_1_14
+NMTernary         nm_setting_wired_get_offload_feature (NMSettingWired *setting,
+                                                        const char *feature);
+NM_AVAILABLE_IN_1_14
+void              nm_setting_wired_set_offload_feature (NMSettingWired *setting,
+                                                        const char *feature,
+                                                        NMTernary value);
+NM_AVAILABLE_IN_1_14
+const char *const*nm_setting_wired_get_offload_features (NMSettingWired *setting);
+NM_AVAILABLE_IN_1_14
+void              nm_setting_wired_clear_offload_features (NMSettingWired *setting);
 
 guint32           nm_setting_wired_get_mtu              (NMSettingWired *setting);
 

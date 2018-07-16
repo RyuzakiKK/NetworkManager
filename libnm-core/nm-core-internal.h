@@ -337,6 +337,26 @@ gboolean _nm_dbus_error_has_name (GError     *error,
 
 /*****************************************************************************/
 
+typedef enum {
+	NM_ETHTOOL_OFFLOAD_ID_RX,
+	NM_ETHTOOL_OFFLOAD_ID_TX,
+	NM_ETHTOOL_OFFLOAD_ID_SG,
+	NM_ETHTOOL_OFFLOAD_ID_TSO,
+	NM_ETHTOOL_OFFLOAD_ID_GSO,
+	NM_ETHTOOL_OFFLOAD_ID_GRO,
+	NM_ETHTOOL_OFFLOAD_ID_LRO,
+	NM_ETHTOOL_OFFLOAD_ID_RXVLAN,
+	NM_ETHTOOL_OFFLOAD_ID_TXVLAN,
+	NM_ETHTOOL_OFFLOAD_ID_NTUPLE,
+	NM_ETHTOOL_OFFLOAD_ID_RXHASH,
+
+	_NM_ETHTOOL_OFFLOAD_ID_NUM,
+} NMEthtoolOffloadID;
+
+extern const char *const nm_ethtool_offload_names[_NM_ETHTOOL_OFFLOAD_ID_NUM];
+
+/*****************************************************************************/
+
 gboolean _nm_vpn_plugin_info_check_file (const char *filename,
                                          gboolean check_absolute,
                                          gboolean do_validate_filename,

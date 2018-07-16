@@ -40,6 +40,24 @@
  * necessary for connection to Ethernet networks.
  **/
 
+/*****************************************************************************/
+
+const char *const nm_ethtool_offload_names[_NM_ETHTOOL_OFFLOAD_ID_NUM] = {
+	[NM_ETHTOOL_OFFLOAD_ID_RX]     = NM_ETHTOOL_OFFLOAD_FEATURE_RX,
+	[NM_ETHTOOL_OFFLOAD_ID_TX]     = NM_ETHTOOL_OFFLOAD_FEATURE_TX,
+	[NM_ETHTOOL_OFFLOAD_ID_SG]     = NM_ETHTOOL_OFFLOAD_FEATURE_SG,
+	[NM_ETHTOOL_OFFLOAD_ID_TSO]    = NM_ETHTOOL_OFFLOAD_FEATURE_TSO,
+	[NM_ETHTOOL_OFFLOAD_ID_GSO]    = NM_ETHTOOL_OFFLOAD_FEATURE_GSO,
+	[NM_ETHTOOL_OFFLOAD_ID_GRO]    = NM_ETHTOOL_OFFLOAD_FEATURE_GRO,
+	[NM_ETHTOOL_OFFLOAD_ID_LRO]    = NM_ETHTOOL_OFFLOAD_FEATURE_LRO,
+	[NM_ETHTOOL_OFFLOAD_ID_RXVLAN] = NM_ETHTOOL_OFFLOAD_FEATURE_RXVLAN,
+	[NM_ETHTOOL_OFFLOAD_ID_TXVLAN] = NM_ETHTOOL_OFFLOAD_FEATURE_TXVLAN,
+	[NM_ETHTOOL_OFFLOAD_ID_NTUPLE] = NM_ETHTOOL_OFFLOAD_FEATURE_NTUPLE,
+	[NM_ETHTOOL_OFFLOAD_ID_RXHASH] = NM_ETHTOOL_OFFLOAD_FEATURE_RXHASH,
+};
+
+/*****************************************************************************/
+
 G_DEFINE_TYPE_WITH_CODE (NMSettingWired, nm_setting_wired, NM_TYPE_SETTING,
                          _nm_register_setting (WIRED, NM_SETTING_PRIORITY_HW_BASE))
 
@@ -60,6 +78,7 @@ typedef struct {
 	GHashTable *s390_options;
 	NMSettingWiredWakeOnLan wol;
 	char *wol_password;
+	GHashTable *offload_features;
 } NMSettingWiredPrivate;
 
 enum {
@@ -73,6 +92,7 @@ enum {
 	PROP_GENERATE_MAC_ADDRESS_MASK,
 	PROP_MAC_ADDRESS_BLACKLIST,
 	PROP_MTU,
+	PROP_OFFLOAD_FEATURE,
 	PROP_S390_SUBCHANNELS,
 	PROP_S390_NETTYPE,
 	PROP_S390_OPTIONS,
@@ -848,6 +868,7 @@ set_property (GObject *object, guint prop_id,
               const GValue *value, GParamSpec *pspec)
 {
 	NMSettingWiredPrivate *priv = NM_SETTING_WIRED_GET_PRIVATE (object);
+	GHashTable *hash;
 	const char * const *blacklist;
 	const char *mac;
 	int i;
@@ -893,6 +914,18 @@ set_property (GObject *object, guint prop_id,
 		break;
 	case PROP_MTU:
 		priv->mtu = g_value_get_uint (value);
+		break;
+	case PROP_OFFLOAD_FEATURE:
+		hash = g_value_get_boxed (value);
+		g_hash_table_remove_all (priv->offload_features);
+		if (hash) {
+			const char *key;
+			GVariant *value;
+
+			g_hash_table_iter_init (&iter, hash);
+			while (g_hash_table_iter_next (&iter, (gpointer *) &key, (gpointer *) &value))
+				g_hash_table_insert (priv->offload_features, g_strdup (key), g_variant_ref (value));
+		}
 		break;
 	case PROP_S390_SUBCHANNELS:
 		if (priv->s390_subchannels)
@@ -1317,6 +1350,19 @@ nm_setting_wired_class_init (NMSettingWiredClass *setting_wired_class)
 		                    G_PARAM_CONSTRUCT |
 		                    NM_SETTING_PARAM_FUZZY_IGNORE |
 		                    G_PARAM_STATIC_STRINGS));
+
+	/**
+	 * NMSettingWired:offline-feature: (type GHashTable(utf8,GVariant)):
+	 *
+	 * List of hardware offloading features.
+	 **/
+	g_object_class_install_property
+	    (object_class, PROP_OFFLOAD_FEATURE,
+	     g_param_spec_boxed (NM_SETTING_WIRED_OFFLOAD_FEATURE, "", "",
+	                         G_TYPE_HASH_TABLE,
+	                         G_PARAM_READWRITE |
+	                         NM_SETTING_PARAM_INFERRABLE |
+	                         G_PARAM_STATIC_STRINGS));
 
 	/**
 	 * NMSettingWired:s390-subchannels:
