@@ -39,9 +39,9 @@
 
 #include "nm-core-utils.h"
 
-/******************************************************************
+/******************************************************************************
  * utils
- ******************************************************************/
+ *****************************************************************************/
 
 extern char *if_indextoname (unsigned __ifindex, char *__ifname);
 unsigned if_nametoindex (const char *__ifname);
@@ -63,9 +63,9 @@ nmp_utils_if_nametoindex (const char *ifname)
 	return if_nametoindex (ifname);
 }
 
-/******************************************************************
+/******************************************************************************
  * ethtool
- ******************************************************************/
+ *****************************************************************************/
 
 NM_UTILS_ENUM2STR_DEFINE_STATIC (_ethtool_cmd_to_string, guint32,
 	NM_UTILS_ENUM2STR (ETHTOOL_GDRVINFO,   "ETHTOOL_GDRVINFO"),
@@ -157,39 +157,60 @@ ethtool_get (int ifindex, gpointer edata)
 	}
 }
 
+/*****************************************************************************/
+
+static struct ethtool_gstrings *
+ethtool_get_stringset (int ifindex, int stringset_id)
+{
+	struct {
+		struct ethtool_sset_info info;
+		guint32 sentinel;
+	} sset_info = { };
+	gs_free struct ethtool_gstrings *gstrings = NULL;
+	guint32 i, len;
+
+	g_return_val_if_fail (ifindex > 0, NULL);
+
+	sset_info.info.cmd = ETHTOOL_GSSET_INFO;
+	sset_info.info.reserved = 0;
+	sset_info.info.sset_mask = (1ULL << stringset_id);
+
+	if (!ethtool_get (ifindex, &sset_info))
+		return NULL;
+	if (!sset_info.info.sset_mask)
+		return NULL;
+
+	len = sset_info.info.data[0];
+
+	gstrings = g_malloc0 (sizeof (*gstrings) + (len * ETH_GSTRING_LEN));
+	gstrings->cmd = ETHTOOL_GSTRINGS;
+	gstrings->string_set = stringset_id;
+	gstrings->len = len;
+	if (gstrings->len > 0) {
+		if (!ethtool_get (ifindex, gstrings))
+			return NULL;
+		for (i = 0; i < gstrings->len; i++) {
+			/* ensure null terminated */
+			gstrings->data[i * ETH_GSTRING_LEN + (ETH_GSTRING_LEN - 1)] = '\0';
+		}
+	}
+
+	return g_steal_pointer (&gstrings);
+}
+
 static int
 ethtool_get_stringset_index (int ifindex, int stringset_id, const char *string)
 {
-	gs_free struct ethtool_sset_info *info = NULL;
-	gs_free struct ethtool_gstrings *strings = NULL;
-	guint32 len, i;
+	gs_free struct ethtool_gstrings *gstrings = NULL;
+	guint32 i;
 
-	g_return_val_if_fail (ifindex > 0, -1);
-
-	info = g_malloc0 (sizeof (*info) + sizeof (guint32));
-	info->cmd = ETHTOOL_GSSET_INFO;
-	info->reserved = 0;
-	info->sset_mask = 1ULL << stringset_id;
-
-	if (!ethtool_get (ifindex, info))
-		return -1;
-	if (!info->sset_mask)
-		return -1;
-
-	len = info->data[0];
-
-	strings = g_malloc0 (sizeof (*strings) + len * ETH_GSTRING_LEN);
-	strings->cmd = ETHTOOL_GSTRINGS;
-	strings->string_set = stringset_id;
-	strings->len = len;
-	if (!ethtool_get (ifindex, strings))
-		return -1;
-
-	for (i = 0; i < len; i++) {
-		if (!strcmp ((char *) &strings->data[i * ETH_GSTRING_LEN], string))
-			return i;
+	gstrings = ethtool_get_stringset (ifindex, stringset_id);
+	if (gstrings) {
+		for (i = 0; i < gstrings->len; i++) {
+			if (nm_streq ((char *) &gstrings->data[i * ETH_GSTRING_LEN], string))
+				return i;
+		}
 	}
-
 	return -1;
 }
 
@@ -282,7 +303,7 @@ nmp_utils_ethtool_supports_vlans (int ifindex)
 	g_return_val_if_fail (ifindex > 0, FALSE);
 
 	idx = ethtool_get_stringset_index (ifindex, ETH_SS_FEATURES, "vlan-challenged");
-	if (idx == -1) {
+	if (idx < 0) {
 		nm_log_dbg (LOGD_PLATFORM, "ethtool: vlan-challenged ethtool feature does not exist for %d?", ifindex);
 		return FALSE;
 	}
@@ -310,7 +331,7 @@ nmp_utils_ethtool_get_peer_ifindex (int ifindex)
 	g_return_val_if_fail (ifindex > 0, 0);
 
 	peer_ifindex_stat = ethtool_get_stringset_index (ifindex, ETH_SS_STATS, "peer_ifindex");
-	if (peer_ifindex_stat == -1) {
+	if (peer_ifindex_stat < 0) {
 		nm_log_dbg (LOGD_PLATFORM, "ethtool: peer_ifindex stat for %d does not exist?", ifindex);
 		return FALSE;
 	}
@@ -530,9 +551,9 @@ nmp_utils_ethtool_set_wake_on_lan (int ifindex,
 	return ethtool_get (ifindex, &wol_info);
 }
 
-/******************************************************************
+/******************************************************************************
  * mii
- ******************************************************************/
+ *****************************************************************************/
 
 gboolean
 nmp_utils_mii_supports_carrier_detect (int ifindex)
@@ -576,9 +597,9 @@ nmp_utils_mii_supports_carrier_detect (int ifindex)
 	return TRUE;
 }
 
-/******************************************************************
+/******************************************************************************
  * udev
- ******************************************************************/
+ *****************************************************************************/
 
 const char *
 nmp_utils_udev_get_driver (struct udev_device *udevice)
