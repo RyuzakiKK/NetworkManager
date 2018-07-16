@@ -132,13 +132,14 @@ _ethtool_data_to_string (gconstpointer edata, char *buf, gsize len)
 	G_STMT_START { (pedata)->speed = (guint16) (speed); } G_STMT_END
 #endif
 
-static gboolean
+static int
 ethtool_call_handle (SocketHandle *shandle, gpointer edata)
 {
 	struct ifreq ifr = {
 		.ifr_data = edata,
 	};
 	char sbuf[50];
+	int errsv;
 
 	nm_assert (shandle);
 	nm_assert (shandle->ifindex);
@@ -148,22 +149,23 @@ ethtool_call_handle (SocketHandle *shandle, gpointer edata)
 
 	memcpy (ifr.ifr_name, shandle->ifname, IFNAMSIZ);
 	if (ioctl (shandle->fd, SIOCETHTOOL, &ifr) < 0) {
+		errsv = errno;
 		nm_log_trace (LOGD_PLATFORM, "ethtool[%d]: %s, %s: failed: %s",
 		              shandle->ifindex,
 		              _ethtool_data_to_string (edata, sbuf, sizeof (sbuf)),
 		              shandle->ifname,
-		              strerror (errno));
-		return FALSE;
+		              strerror (errsv));
+		return -errsv;
 	}
 
 	nm_log_trace (LOGD_PLATFORM, "ethtool[%d]: %s, %s: success",
 	              shandle->ifindex,
 	              _ethtool_data_to_string (edata, sbuf, sizeof (sbuf)),
 	              shandle->ifname);
-	return TRUE;
+	return 0;
 }
 
-static gboolean
+static int
 ethtool_call_ifindex (int ifindex, gpointer edata)
 {
 	nm_auto_socket_handle SocketHandle shandle = { };
@@ -177,7 +179,7 @@ ethtool_call_ifindex (int ifindex, gpointer edata)
 		              ifindex,
 		              _ethtool_data_to_string (edata, sbuf, sizeof (sbuf)),
 		              g_strerror (-r));
-		return FALSE;
+		return r;
 	}
 
 	return ethtool_call_handle (&shandle, edata);
@@ -199,7 +201,7 @@ ethtool_get_stringset (SocketHandle *shandle, int stringset_id)
 	sset_info.info.reserved = 0;
 	sset_info.info.sset_mask = (1ULL << stringset_id);
 
-	if (!ethtool_call_handle (shandle, &sset_info))
+	if (ethtool_call_handle (shandle, &sset_info) < 0)
 		return NULL;
 	if (!sset_info.info.sset_mask)
 		return NULL;
@@ -211,7 +213,7 @@ ethtool_get_stringset (SocketHandle *shandle, int stringset_id)
 	gstrings->string_set = stringset_id;
 	gstrings->len = len;
 	if (gstrings->len > 0) {
-		if (!ethtool_call_handle (shandle, gstrings))
+		if (ethtool_call_handle (shandle, gstrings) < 0)
 			return NULL;
 		for (i = 0; i < gstrings->len; i++) {
 			/* ensure null terminated */
@@ -259,7 +261,7 @@ nmp_utils_ethtool_get_driver_info (int ifindex,
 
 	memset (drvinfo, 0, sizeof (*drvinfo));
 	drvinfo->cmd = ETHTOOL_GDRVINFO;
-	return ethtool_call_ifindex (ifindex, drvinfo);
+	return ethtool_call_ifindex (ifindex, drvinfo) >= 0;
 }
 
 gboolean
@@ -279,7 +281,7 @@ nmp_utils_ethtool_get_permanent_address (int ifindex,
 	edata.e.cmd = ETHTOOL_GPERMADDR;
 	edata.e.size = NM_UTILS_HWADDR_LEN_MAX;
 
-	if (!ethtool_call_ifindex (ifindex, &edata.e))
+	if (ethtool_call_ifindex (ifindex, &edata.e) < 0)
 		return FALSE;
 
 	if (edata.e.size > NM_UTILS_HWADDR_LEN_MAX)
@@ -316,7 +318,7 @@ nmp_utils_ethtool_supports_carrier_detect (int ifindex)
 	 * assume the device supports carrier-detect, otherwise we assume it
 	 * doesn't.
 	 */
-	return ethtool_call_ifindex (ifindex, &edata);
+	return ethtool_call_ifindex (ifindex, &edata) >= 0;
 }
 
 gboolean
@@ -351,7 +353,7 @@ nmp_utils_ethtool_supports_vlans (int ifindex)
 	features->cmd = ETHTOOL_GFEATURES;
 	features->size = size;
 
-	if (!ethtool_call_handle (&shandle, features))
+	if (ethtool_call_handle (&shandle, features) < 0)
 		return FALSE;
 
 	return !(features->features[block].active & (1 << bit));
@@ -385,7 +387,7 @@ nmp_utils_ethtool_get_peer_ifindex (int ifindex)
 	stats = g_malloc0 (sizeof (*stats) + (peer_ifindex_stat + 1) * sizeof (guint64));
 	stats->cmd = ETHTOOL_GSTATS;
 	stats->n_stats = peer_ifindex_stat + 1;
-	if (!ethtool_call_ifindex (ifindex, stats))
+	if (ethtool_call_ifindex (ifindex, stats) < 0)
 		return 0;
 
 	return stats->data[peer_ifindex_stat];
@@ -400,7 +402,7 @@ nmp_utils_ethtool_get_wake_on_lan (int ifindex)
 
 	memset (&wol, 0, sizeof (wol));
 	wol.cmd = ETHTOOL_GWOL;
-	if (!ethtool_call_ifindex (ifindex, &wol))
+	if (ethtool_call_ifindex (ifindex, &wol) < 0)
 		return FALSE;
 
 	return wol.wolopts != 0;
@@ -418,7 +420,7 @@ nmp_utils_ethtool_get_link_settings (int ifindex,
 
 	g_return_val_if_fail (ifindex > 0, FALSE);
 
-	if (!ethtool_call_ifindex (ifindex, &edata))
+	if (ethtool_call_ifindex (ifindex, &edata) < 0)
 		return FALSE;
 
 	if (out_autoneg)
@@ -500,7 +502,7 @@ nmp_utils_ethtool_set_link_settings (int ifindex,
 	                      || (!speed && duplex == NM_PLATFORM_LINK_DUPLEX_UNKNOWN), FALSE);
 
 	/* retrieve first current settings */
-	if (!ethtool_call_ifindex (ifindex, &edata))
+	if (ethtool_call_ifindex (ifindex, &edata) < 0)
 		return FALSE;
 
 	/* then change the needed ones */
@@ -552,7 +554,7 @@ nmp_utils_ethtool_set_link_settings (int ifindex,
 		}
 	}
 
-	return ethtool_call_ifindex (ifindex, &edata);
+	return ethtool_call_ifindex (ifindex, &edata) >= 0;
 }
 
 gboolean
@@ -594,7 +596,7 @@ nmp_utils_ethtool_set_wake_on_lan (int ifindex,
 		wol_info.wolopts |= WAKE_MAGICSECURE;
 	}
 
-	return ethtool_call_ifindex (ifindex, &wol_info);
+	return ethtool_call_ifindex (ifindex, &wol_info) >= 0;
 }
 
 /******************************************************************************
