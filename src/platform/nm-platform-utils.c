@@ -187,6 +187,20 @@ ethtool_call_ifindex (int ifindex, gpointer edata)
 
 /*****************************************************************************/
 
+static int
+ethtool_get_value (SocketHandle *shandle, guint32 cmd, guint32 *out_val)
+{
+	struct ethtool_value eth_value = {
+		.cmd = cmd,
+	};
+	int r;
+
+	if ((r = ethtool_call_handle (shandle, &eth_value)) < 0)
+		return r;
+	NM_SET_OUT (out_val, eth_value.data);
+	return 0;
+}
+
 static struct ethtool_gstrings *
 ethtool_get_stringset (SocketHandle *shandle, int stringset_id)
 {
@@ -238,6 +252,99 @@ ethtool_get_stringset_index (SocketHandle *shandle, int stringset_id, const char
 		}
 	}
 	return -1;
+}
+
+/* old style offloading flags, that are not yet reported via ETHTOOL_GFLAGS.
+ * In particular, these flags must not ovelap with ETH_ALL_FLAGS */
+#define ETH_FLAG__RXCSUM         (1u << 0)
+#define ETH_FLAG__TXCSUM         (1u << 1)
+#define ETH_FLAG__SG             (1u << 2)
+#define ETH_FLAG__TSO            (1u << 3)
+#define ETH_FLAG__GSO            (1u << 4)
+#define ETH_FLAG__GRO            (1u << 5)
+#define ETH_ALL_FLAGS (ETH_FLAG_LRO | ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN | ETH_FLAG_NTUPLE | ETH_FLAG_RXHASH)
+
+typedef struct {
+	const char *short_name;
+	const char *kernel_name;
+	guint32 get_cmd;
+	guint32 set_cmd;
+	guint32 flag_value;
+} EthtoolFeatureInfo;
+
+static const EthtoolFeatureInfo ethtool_feature_infos[] = {
+	{ "rx",     "rx-checksum",             ETHTOOL_GRXCSUM, ETHTOOL_SRXCSUM, ETH_FLAG__RXCSUM, },
+	{ "tx",     "tx-checksum-*",           ETHTOOL_GTXCSUM, ETHTOOL_STXCSUM, ETH_FLAG__TXCSUM, },
+	{ "sg",     "tx-scatter-gather*",      ETHTOOL_GSG,     ETHTOOL_SSG,     ETH_FLAG__SG,     },
+	{ "tso",    "tx-tcp*-segmentation",    ETHTOOL_GTSO,    ETHTOOL_STSO,    ETH_FLAG__TSO,    },
+	{ "gso",    "tx-generic-segmentation", ETHTOOL_GGSO,    ETHTOOL_SGSO,    ETH_FLAG__GSO,    },
+	{ "gro",    "rx-gro",                  ETHTOOL_GGRO,    ETHTOOL_SGRO,    ETH_FLAG__GRO,    },
+	{ "lro",    "rx-lro",                  0,               0,               ETH_FLAG_LRO,     },
+	{ "rxvlan", "rx-vlan-hw-parse",        0,               0,               ETH_FLAG_RXVLAN,  },
+	{ "txvlan", "tx-vlan-hw-insert",       0,               0,               ETH_FLAG_TXVLAN,  },
+	{ "ntuple", "rx-ntuple-filter",        0,               0,               ETH_FLAG_NTUPLE,  },
+	{ "rxhash", "rx-hashing",              0,               0,               ETH_FLAG_RXHASH,  },
+};
+
+#define FEATURE_BITS_TO_BLOCKS(n_bits) (((n_bits) + 31) / 32)
+
+typedef struct {
+	guint32 off_flags;
+	struct ethtool_gfeatures features;
+} EthtoolFeatureState;
+
+static gpointer
+ethtool_get_features (SocketHandle *shandle)
+{
+	gs_free EthtoolFeatureState *state = NULL;
+	gs_free struct ethtool_gstrings *gstrings = NULL;
+	guint i;
+	guint32 check_flags;
+	gboolean any;
+	guint32 u32;
+
+	gstrings = ethtool_get_stringset (shandle, ETH_SS_FEATURES);
+	if (!gstrings)
+		return NULL;
+
+	state = g_malloc0 (sizeof (EthtoolFeatureState)
+	                   + (  FEATURE_BITS_TO_BLOCKS (gstrings->len)
+	                      * sizeof (state->features.features[0])));
+
+	check_flags = 0;
+	any = FALSE;
+	for (i = 0; i < G_N_ELEMENTS (ethtool_feature_infos); i++) {
+		const EthtoolFeatureInfo *eth = &ethtool_feature_infos[i];
+
+		if (eth->get_cmd == 0) {
+			nm_assert (NM_FLAGS_ALL (ETH_ALL_FLAGS, eth->flag_value));
+			continue;
+		}
+		nm_assert (!NM_FLAGS_ANY (ETH_ALL_FLAGS, eth->flag_value));
+		if (ethtool_get_value (shandle, eth->get_cmd, &u32) >= 0) {
+			if (u32)
+				check_flags |= eth->flag_value;
+			any = TRUE;
+		}
+	}
+	if (ethtool_get_value (shandle, ETHTOOL_GFLAGS, &u32) >= 0) {
+		check_flags |= ETH_ALL_FLAGS;
+		any = TRUE;
+	}
+
+	if (gstrings->len) {
+		state->features.cmd = ETHTOOL_GFEATURES;
+		state->features.size = FEATURE_BITS_TO_BLOCKS(gstrings->len);
+		if (ethtool_call_handle (shandle, &state->features) >= 0)
+			any = TRUE;
+		else
+			state->features.cmd = 0;
+	}
+
+	if (!any)
+		return NULL;
+
+	return g_steal_pointer (&state);
 }
 
 gboolean
