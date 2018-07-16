@@ -63,6 +63,42 @@ nmp_utils_if_nametoindex (const char *ifname)
 	return if_nametoindex (ifname);
 }
 
+/*****************************************************************************/
+
+typedef struct {
+	int fd;
+	int ifindex;
+	char ifname[IFNAMSIZ];
+} SocketHandle;
+
+static int
+socket_handle_init (SocketHandle *shandle, int ifindex)
+{
+	if (!nmp_utils_if_indextoname (ifindex, shandle->ifname)) {
+		shandle->ifindex = 0;
+		return -ENODEV;
+	}
+
+	shandle->fd = socket (PF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+	if (shandle->fd < 0) {
+		shandle->ifindex = 0;
+		return -errno;
+	}
+
+	shandle->ifindex = ifindex;
+	return 0;
+}
+
+static void
+socket_handle_destroy (SocketHandle *shandle)
+{
+	if (shandle->ifindex) {
+		shandle->ifindex = 0;
+		nm_close (shandle->fd);
+	}
+}
+#define nm_auto_socket_handle nm_auto(socket_handle_destroy)
+
 /******************************************************************************
  * ethtool
  *****************************************************************************/
@@ -87,6 +123,8 @@ _ethtool_data_to_string (gconstpointer edata, char *buf, gsize len)
 	return _ethtool_cmd_to_string (*((guint32 *) edata), buf, len);
 }
 
+/*****************************************************************************/
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
 #define ethtool_cmd_speed(pedata) ((pedata)->speed)
 
@@ -95,72 +133,60 @@ _ethtool_data_to_string (gconstpointer edata, char *buf, gsize len)
 #endif
 
 static gboolean
-ethtool_get (int ifindex, gpointer edata)
+ethtool_call_handle (SocketHandle *shandle, gpointer edata)
 {
-	char ifname[IFNAMSIZ];
+	struct ifreq ifr = {
+		.ifr_data = edata,
+	};
 	char sbuf[50];
 
-	nm_assert (ifindex > 0);
+	nm_assert (shandle);
+	nm_assert (shandle->ifindex);
+	nm_assert (shandle->ifname[0]);
+	nm_assert (strlen (shandle->ifname) < IFNAMSIZ);
+	nm_assert (edata);
 
-	/* ethtool ioctl API uses the ifname to refer to an interface. That is racy
-	 * as interfaces can be renamed *sigh*.
-	 *
-	 * Note that we anyway have to verify whether the interface exists, before
-	 * calling ioctl for a non-existing ifname. This is to prevent autoloading
-	 * of kernel modules *sigh*.
-	 * Thus, as we anyway verify the existence of ifname before doing the call,
-	 * go one step further and lookup the ifname everytime anew.
-	 *
-	 * This does not solve the renaming race, but it minimizes the time for
-	 * the race to happen as much as possible. */
-
-	if (!nmp_utils_if_indextoname (ifindex, ifname)) {
-		nm_log_trace (LOGD_PLATFORM, "ethtool[%d]: %s: request fails resolving ifindex: %s",
-		              ifindex,
+	memcpy (ifr.ifr_name, shandle->ifname, IFNAMSIZ);
+	if (ioctl (shandle->fd, SIOCETHTOOL, &ifr) < 0) {
+		nm_log_trace (LOGD_PLATFORM, "ethtool[%d]: %s, %s: failed: %s",
+		              shandle->ifindex,
 		              _ethtool_data_to_string (edata, sbuf, sizeof (sbuf)),
-		              g_strerror (errno));
+		              shandle->ifname,
+		              strerror (errno));
 		return FALSE;
 	}
 
-	{
-		nm_auto_close int fd = -1;
-		struct ifreq ifr = {
-			.ifr_data = edata,
-		};
+	nm_log_trace (LOGD_PLATFORM, "ethtool[%d]: %s, %s: success",
+	              shandle->ifindex,
+	              _ethtool_data_to_string (edata, sbuf, sizeof (sbuf)),
+	              shandle->ifname);
+	return TRUE;
+}
 
-		memcpy (ifr.ifr_name, ifname, sizeof (ifname));
+static gboolean
+ethtool_call_ifindex (int ifindex, gpointer edata)
+{
+	nm_auto_socket_handle SocketHandle shandle = { };
+	int r;
+	char sbuf[50];
 
-		fd = socket (PF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
-		if (fd < 0) {
-			nm_log_trace (LOGD_PLATFORM, "ethtool[%d]: %s, %s: failed creating socket for ioctl: %s",
-			              ifindex,
-			              _ethtool_data_to_string (edata, sbuf, sizeof (sbuf)),
-			              ifname,
-			              g_strerror (errno));
-			return FALSE;
-		}
+	nm_assert (edata);
 
-		if (ioctl (fd, SIOCETHTOOL, &ifr) < 0) {
-			nm_log_trace (LOGD_PLATFORM, "ethtool[%d]: %s, %s: failed: %s",
-			              ifindex,
-			              _ethtool_data_to_string (edata, sbuf, sizeof (sbuf)),
-			              ifname,
-			              strerror (errno));
-			return FALSE;
-		}
-
-		nm_log_trace (LOGD_PLATFORM, "ethtool[%d]: %s, %s: success",
+	if ((r = socket_handle_init (&shandle, ifindex)) < 0) {
+		nm_log_trace (LOGD_PLATFORM, "ethtool[%d]: %s: failed creating ethtool socket: %s",
 		              ifindex,
 		              _ethtool_data_to_string (edata, sbuf, sizeof (sbuf)),
-		              ifname);
-		return TRUE;
+		              g_strerror (-r));
+		return FALSE;
 	}
+
+	return ethtool_call_handle (&shandle, edata);
 }
 
 /*****************************************************************************/
 
 static struct ethtool_gstrings *
-ethtool_get_stringset (int ifindex, int stringset_id)
+ethtool_get_stringset (SocketHandle *shandle, int stringset_id)
 {
 	struct {
 		struct ethtool_sset_info info;
@@ -169,13 +195,11 @@ ethtool_get_stringset (int ifindex, int stringset_id)
 	gs_free struct ethtool_gstrings *gstrings = NULL;
 	guint32 i, len;
 
-	g_return_val_if_fail (ifindex > 0, NULL);
-
 	sset_info.info.cmd = ETHTOOL_GSSET_INFO;
 	sset_info.info.reserved = 0;
 	sset_info.info.sset_mask = (1ULL << stringset_id);
 
-	if (!ethtool_get (ifindex, &sset_info))
+	if (!ethtool_call_handle (shandle, &sset_info))
 		return NULL;
 	if (!sset_info.info.sset_mask)
 		return NULL;
@@ -187,7 +211,7 @@ ethtool_get_stringset (int ifindex, int stringset_id)
 	gstrings->string_set = stringset_id;
 	gstrings->len = len;
 	if (gstrings->len > 0) {
-		if (!ethtool_get (ifindex, gstrings))
+		if (!ethtool_call_handle (shandle, gstrings))
 			return NULL;
 		for (i = 0; i < gstrings->len; i++) {
 			/* ensure null terminated */
@@ -199,12 +223,12 @@ ethtool_get_stringset (int ifindex, int stringset_id)
 }
 
 static int
-ethtool_get_stringset_index (int ifindex, int stringset_id, const char *string)
+ethtool_get_stringset_index (SocketHandle *shandle, int stringset_id, const char *string)
 {
 	gs_free struct ethtool_gstrings *gstrings = NULL;
 	guint32 i;
 
-	gstrings = ethtool_get_stringset (ifindex, stringset_id);
+	gstrings = ethtool_get_stringset (shandle, stringset_id);
 	if (gstrings) {
 		for (i = 0; i < gstrings->len; i++) {
 			if (nm_streq ((char *) &gstrings->data[i * ETH_GSTRING_LEN], string))
@@ -219,13 +243,14 @@ nmp_utils_ethtool_get_driver_info (int ifindex,
                                    NMPUtilsEthtoolDriverInfo *data)
 {
 	struct ethtool_drvinfo *drvinfo;
-	G_STATIC_ASSERT (sizeof (*data) == sizeof (*drvinfo));
-	G_STATIC_ASSERT (offsetof (NMPUtilsEthtoolDriverInfo, driver)     == offsetof (struct ethtool_drvinfo, driver));
-	G_STATIC_ASSERT (offsetof (NMPUtilsEthtoolDriverInfo, version)    == offsetof (struct ethtool_drvinfo, version));
-	G_STATIC_ASSERT (offsetof (NMPUtilsEthtoolDriverInfo, fw_version) == offsetof (struct ethtool_drvinfo, fw_version));
-	G_STATIC_ASSERT (sizeof (data->driver)     == sizeof (drvinfo->driver));
-	G_STATIC_ASSERT (sizeof (data->version)    == sizeof (drvinfo->version));
-	G_STATIC_ASSERT (sizeof (data->fw_version) == sizeof (drvinfo->fw_version));
+
+	G_STATIC_ASSERT_EXPR (sizeof (*data) == sizeof (*drvinfo));
+	G_STATIC_ASSERT_EXPR (offsetof (NMPUtilsEthtoolDriverInfo, driver)     == offsetof (struct ethtool_drvinfo, driver));
+	G_STATIC_ASSERT_EXPR (offsetof (NMPUtilsEthtoolDriverInfo, version)    == offsetof (struct ethtool_drvinfo, version));
+	G_STATIC_ASSERT_EXPR (offsetof (NMPUtilsEthtoolDriverInfo, fw_version) == offsetof (struct ethtool_drvinfo, fw_version));
+	G_STATIC_ASSERT_EXPR (sizeof (data->driver)     == sizeof (drvinfo->driver));
+	G_STATIC_ASSERT_EXPR (sizeof (data->version)    == sizeof (drvinfo->version));
+	G_STATIC_ASSERT_EXPR (sizeof (data->fw_version) == sizeof (drvinfo->fw_version));
 
 	g_return_val_if_fail (ifindex > 0, FALSE);
 	g_return_val_if_fail (data, FALSE);
@@ -234,7 +259,7 @@ nmp_utils_ethtool_get_driver_info (int ifindex,
 
 	memset (drvinfo, 0, sizeof (*drvinfo));
 	drvinfo->cmd = ETHTOOL_GDRVINFO;
-	return ethtool_get (ifindex, drvinfo);
+	return ethtool_call_ifindex (ifindex, drvinfo);
 }
 
 gboolean
@@ -254,7 +279,7 @@ nmp_utils_ethtool_get_permanent_address (int ifindex,
 	edata.e.cmd = ETHTOOL_GPERMADDR;
 	edata.e.size = NM_UTILS_HWADDR_LEN_MAX;
 
-	if (!ethtool_get (ifindex, &edata.e))
+	if (!ethtool_call_ifindex (ifindex, &edata.e))
 		return FALSE;
 
 	if (edata.e.size > NM_UTILS_HWADDR_LEN_MAX)
@@ -273,8 +298,8 @@ nmp_utils_ethtool_get_permanent_address (int ifindex,
 		}
 		return FALSE;
 	}
-not_all_0or1:
 
+not_all_0or1:
 	memcpy (buf, edata.e.data, edata.e.size);
 	*length = edata.e.size;
 	return TRUE;
@@ -291,18 +316,28 @@ nmp_utils_ethtool_supports_carrier_detect (int ifindex)
 	 * assume the device supports carrier-detect, otherwise we assume it
 	 * doesn't.
 	 */
-	return ethtool_get (ifindex, &edata);
+	return ethtool_call_ifindex (ifindex, &edata);
 }
 
 gboolean
 nmp_utils_ethtool_supports_vlans (int ifindex)
 {
+	nm_auto_socket_handle SocketHandle shandle = { };
+	int r;
 	gs_free struct ethtool_gfeatures *features = NULL;
 	int idx, block, bit, size;
 
 	g_return_val_if_fail (ifindex > 0, FALSE);
 
-	idx = ethtool_get_stringset_index (ifindex, ETH_SS_FEATURES, "vlan-challenged");
+	if ((r = socket_handle_init (&shandle, ifindex)) < 0) {
+		nm_log_trace (LOGD_PLATFORM, "ethtool[%d]: %s: failed creating ethtool socket: %s",
+		              ifindex,
+		              "support-vlans",
+		              g_strerror (-r));
+		return FALSE;
+	}
+
+	idx = ethtool_get_stringset_index (&shandle, ETH_SS_FEATURES, "vlan-challenged");
 	if (idx < 0) {
 		nm_log_dbg (LOGD_PLATFORM, "ethtool: vlan-challenged ethtool feature does not exist for %d?", ifindex);
 		return FALSE;
@@ -316,7 +351,7 @@ nmp_utils_ethtool_supports_vlans (int ifindex)
 	features->cmd = ETHTOOL_GFEATURES;
 	features->size = size;
 
-	if (!ethtool_get (ifindex, features))
+	if (!ethtool_call_handle (&shandle, features))
 		return FALSE;
 
 	return !(features->features[block].active & (1 << bit));
@@ -325,12 +360,23 @@ nmp_utils_ethtool_supports_vlans (int ifindex)
 int
 nmp_utils_ethtool_get_peer_ifindex (int ifindex)
 {
+	nm_auto_socket_handle SocketHandle shandle = { };
+	int r;
+
 	gs_free struct ethtool_stats *stats = NULL;
 	int peer_ifindex_stat;
 
 	g_return_val_if_fail (ifindex > 0, 0);
 
-	peer_ifindex_stat = ethtool_get_stringset_index (ifindex, ETH_SS_STATS, "peer_ifindex");
+	if ((r = socket_handle_init (&shandle, ifindex)) < 0) {
+		nm_log_trace (LOGD_PLATFORM, "ethtool[%d]: %s: failed creating ethtool socket: %s",
+		              ifindex,
+		              "get-peer-ifindex",
+		              g_strerror (-r));
+		return FALSE;
+	}
+
+	peer_ifindex_stat = ethtool_get_stringset_index (&shandle, ETH_SS_STATS, "peer_ifindex");
 	if (peer_ifindex_stat < 0) {
 		nm_log_dbg (LOGD_PLATFORM, "ethtool: peer_ifindex stat for %d does not exist?", ifindex);
 		return FALSE;
@@ -339,7 +385,7 @@ nmp_utils_ethtool_get_peer_ifindex (int ifindex)
 	stats = g_malloc0 (sizeof (*stats) + (peer_ifindex_stat + 1) * sizeof (guint64));
 	stats->cmd = ETHTOOL_GSTATS;
 	stats->n_stats = peer_ifindex_stat + 1;
-	if (!ethtool_get (ifindex, stats))
+	if (!ethtool_call_ifindex (ifindex, stats))
 		return 0;
 
 	return stats->data[peer_ifindex_stat];
@@ -354,7 +400,7 @@ nmp_utils_ethtool_get_wake_on_lan (int ifindex)
 
 	memset (&wol, 0, sizeof (wol));
 	wol.cmd = ETHTOOL_GWOL;
-	if (!ethtool_get (ifindex, &wol))
+	if (!ethtool_call_ifindex (ifindex, &wol))
 		return FALSE;
 
 	return wol.wolopts != 0;
@@ -372,7 +418,7 @@ nmp_utils_ethtool_get_link_settings (int ifindex,
 
 	g_return_val_if_fail (ifindex > 0, FALSE);
 
-	if (!ethtool_get (ifindex, &edata))
+	if (!ethtool_call_ifindex (ifindex, &edata))
 		return FALSE;
 
 	if (out_autoneg)
@@ -454,7 +500,7 @@ nmp_utils_ethtool_set_link_settings (int ifindex,
 	                      || (!speed && duplex == NM_PLATFORM_LINK_DUPLEX_UNKNOWN), FALSE);
 
 	/* retrieve first current settings */
-	if (!ethtool_get (ifindex, &edata))
+	if (!ethtool_call_ifindex (ifindex, &edata))
 		return FALSE;
 
 	/* then change the needed ones */
@@ -506,7 +552,7 @@ nmp_utils_ethtool_set_link_settings (int ifindex,
 		}
 	}
 
-	return ethtool_get (ifindex, &edata);
+	return ethtool_call_ifindex (ifindex, &edata);
 }
 
 gboolean
@@ -548,7 +594,7 @@ nmp_utils_ethtool_set_wake_on_lan (int ifindex,
 		wol_info.wolopts |= WAKE_MAGICSECURE;
 	}
 
-	return ethtool_get (ifindex, &wol_info);
+	return ethtool_call_ifindex (ifindex, &wol_info);
 }
 
 /******************************************************************************
