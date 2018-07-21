@@ -10504,6 +10504,21 @@ nm_device_reactivate_ip4_config (NMDevice *self,
 			if (!nm_device_activate_stage3_ip4_start (self))
 				_LOGW (LOGD_IP4, "Failed to apply IPv4 configuration");
 		} else {
+			if (nm_streq0 (method_new, NM_SETTING_IP4_CONFIG_METHOD_AUTO)) {
+				gint64 metric_old, metric_new;
+				NMIP4Config *ip4;
+				
+				metric_old = nm_setting_ip_config_get_route_metric (s_ip4_old);
+				metric_new = nm_setting_ip_config_get_route_metric (s_ip4_new);
+
+				if (metric_old != metric_new) {
+					if (priv->dhcp4.client)
+						nm_dhcp_client_set_route_metric (priv->dhcp4.client, metric_new);
+					ip4 = (NMIP4Config *) applied_config_get_current (&priv->dev_ip4_config);
+					nm_ip4_config_update_routes_metric (ip4,
+					                                    nm_device_get_route_metric (self, AF_INET));
+				}
+			}
 			if (!ip_config_merge_and_apply (self, AF_INET, TRUE))
 				_LOGW (LOGD_IP4, "Failed to reapply IPv4 configuration");
 		}
