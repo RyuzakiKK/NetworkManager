@@ -211,6 +211,26 @@ NMSettingPriority _nm_setting_get_setting_priority (NMSetting *setting);
 
 gboolean _nm_setting_get_property (NMSetting *setting, const char *name, GValue *value);
 
+/*****************************************************************************/
+
+GHashTable *_nm_setting_gendata_hash (NMSetting *setting,
+                                      gboolean create_if_necessary);
+
+void _nm_setting_gendata_notify (NMSetting *setting,
+                                 gboolean keys_changed);
+
+guint _nm_setting_gendata_get_all (NMSetting *setting,
+                                   const char *const**out_names,
+                                   GVariant *const**out_values);
+
+gboolean _nm_setting_gendata_reset_from_hash (NMSetting *setting,
+                                              GHashTable *new);
+
+void _nm_setting_gendata_to_gvalue (NMSetting *setting,
+                                     GValue *value);
+
+/*****************************************************************************/
+
 #define NM_UTILS_HWADDR_LEN_MAX_STR (NM_UTILS_HWADDR_LEN_MAX * 3)
 
 guint8 *_nm_utils_hwaddr_aton (const char *asc, gpointer buffer, gsize buffer_length, gsize *out_length);

@@ -56,6 +56,12 @@
 /*****************************************************************************/
 
 typedef struct {
+	GHashTable *hash;
+	const char **names;
+	GVariant **values;
+} GenData;
+
+typedef struct {
 	const char *name;
 	GType type;
 	NMSettingPriority priority;
@@ -70,6 +76,7 @@ enum {
 
 typedef struct {
 	const SettingInfo *info;
+	GenData *gendata;
 } NMSettingPrivate;
 
 G_DEFINE_ABSTRACT_TYPE (NMSetting, nm_setting, G_TYPE_OBJECT)
@@ -2024,6 +2031,240 @@ _nm_setting_get_deprecated_virtual_interface_name (NMSetting *setting,
 
 /*****************************************************************************/
 
+static GenData *
+_gendata_hash (NMSetting *setting, gboolean create_if_necessary)
+{
+	NMSettingPrivate *priv;
+
+	nm_assert (NM_IS_SETTING (setting));
+
+	priv = NM_SETTING_GET_PRIVATE (setting);
+
+	if (G_UNLIKELY (!priv->gendata)) {
+		if (!create_if_necessary)
+			return NULL;
+		priv->gendata = g_slice_new (GenData);
+		priv->gendata->hash = g_hash_table_new_full (nm_str_hash, g_str_equal, g_free, (GDestroyNotify) g_variant_unref);
+		priv->gendata->names = NULL;
+		priv->gendata->values = NULL;
+	}
+
+	return priv->gendata;
+}
+
+GHashTable *
+_nm_setting_gendata_hash (NMSetting *setting, gboolean create_if_necessary)
+{
+	GenData *gendata;
+
+	gendata = _gendata_hash (setting, create_if_necessary);
+	return gendata ? gendata->hash : NULL;
+}
+
+void
+_nm_setting_gendata_notify (NMSetting *setting,
+                            gboolean names_changed)
+{
+	GenData *gendata;
+
+	gendata = _gendata_hash (setting, FALSE);
+	if (!gendata)
+		return;
+
+	nm_clear_g_free (&gendata->values);
+
+	if (names_changed) {
+		/* if only the values changed, it's sufficient to invalidate the
+		 * values cache. Otherwise, the names cache must be invalidated too. */
+		nm_clear_g_free (&gendata->names);
+	}
+}
+
+GVariant *
+nm_setting_gendata_get (NMSetting *setting,
+                        const char *name)
+{
+	GenData *gendata;
+
+	g_return_val_if_fail (NM_IS_SETTING (setting), NULL);
+	g_return_val_if_fail (name, NULL);
+
+	gendata = _gendata_hash (setting, FALSE);
+	return gendata ? g_hash_table_lookup (gendata->hash, name) : NULL;
+}
+
+guint
+_nm_setting_gendata_get_all (NMSetting *setting,
+                             const char *const**out_names,
+                             GVariant *const**out_values)
+{
+	GenData *gendata;
+	GHashTable *hash;
+	guint i, len;
+
+	nm_assert (NM_IS_SETTING (setting));
+
+	gendata = _gendata_hash (setting, FALSE);
+	if (!gendata)
+		goto out_zero;
+
+	hash = gendata->hash;
+	len = g_hash_table_size (hash);
+	if (len == 0)
+		goto out_zero;
+
+	if (!out_names && !out_values)
+		return len;
+
+	if (G_UNLIKELY (!gendata->names)) {
+		gendata->names = nm_utils_strdict_get_keys (hash,
+		                                            TRUE,
+		                                            NULL);
+	}
+
+	if (out_values) {
+		if (G_UNLIKELY (!gendata->values)) {
+			gendata->values = g_new (GVariant *, len + 1);
+			for (i = 0; i < len; i++)
+				gendata->values[i] = g_hash_table_lookup (hash, gendata->names[i]);
+			gendata->values[i] = NULL;
+		}
+		*out_values = gendata->values;
+	}
+
+	NM_SET_OUT (out_names, (const char *const*) gendata->names);
+	return len;
+
+out_zero:
+	NM_SET_OUT (out_names, NULL);
+	NM_SET_OUT (out_values, NULL);
+	return 0;
+}
+
+/**
+ * nm_setting_gendata_get_all_names:
+ * @setting: the #NMSetting
+ * @out_len: (allow-none): (out):
+ *
+ * Gives the number of generic data elements and optionally returns all their
+ * key names and values. This API is low level access and unless you know what you
+ * are doing, it might not be what you want.
+ *
+ * Returns: (array length=out_len zero-terminated=1) (transfer none):
+ *   A %NULL terminated array of key names. If no names are present, this returns
+ *   %NULL. The returned array and the names are owned by %NMSetting and might be invalidated
+ *   soon.
+ *
+ * Since: 1.14
+ **/
+const char *const*
+nm_setting_gendata_get_all_names (NMSetting *setting,
+                                  guint *out_len)
+{
+	const char *const*names;
+	guint len;
+
+	g_return_val_if_fail (NM_IS_SETTING (setting), NULL);
+
+	len = _nm_setting_gendata_get_all (setting, &names, NULL);
+	NM_SET_OUT (out_len, len);
+	return names;
+}
+
+/**
+ * nm_setting_gendata_get_all_values:
+ * @setting: the #NMSetting
+ *
+ * Gives the number of generic data elements and optionally returns all their
+ * key names and values. This API is low level access and unless you know what you
+ * are doing, it might not be what you want.
+ *
+ * Returns: (array zero-terminated=1) (transfer none):
+ *   A %NULL terminated array of #GVariant. If no data is present, this returns
+ *   %NULL. The returned array and the variants are owned by %NMSetting and might be invalidated
+ *   soon. The sort order of nm_setting_gendata_get_all_names() and nm_setting_gendata_get_all_values()
+ *   is consistent. That means, the nth value has the nth name returned by nm_setting_gendata_get_all_names().
+ *
+ * Since: 1.14
+ **/
+GVariant *const*
+nm_setting_gendata_get_all_values (NMSetting *setting)
+{
+	GVariant *const*values;
+
+	g_return_val_if_fail (NM_IS_SETTING (setting), NULL);
+
+	_nm_setting_gendata_get_all (setting, NULL, &values);
+	return values;
+}
+
+void
+_nm_setting_gendata_to_gvalue (NMSetting *setting,
+                                GValue *value)
+{
+	GenData *gendata;
+	GHashTable *new;
+	const char *key;
+	GVariant *val;
+	GHashTableIter iter;
+
+	nm_assert (NM_IS_SETTING (setting));
+	nm_assert (value);
+	nm_assert (G_TYPE_CHECK_VALUE_TYPE ((value), G_TYPE_HASH_TABLE));
+
+	new = g_hash_table_new_full (nm_str_hash, g_str_equal, g_free, (GDestroyNotify) g_variant_unref);
+
+	gendata = _gendata_hash (setting, FALSE);
+	if (gendata) {
+		g_hash_table_iter_init (&iter, gendata->hash);
+		while (g_hash_table_iter_next (&iter, (gpointer *) &key, (gpointer *) &val))
+			g_hash_table_insert (new, g_strdup (key), g_variant_ref (val));
+	}
+
+	g_value_take_boxed (value, new);
+}
+
+gboolean
+_nm_setting_gendata_reset_from_hash (NMSetting *setting,
+                                     GHashTable *new)
+{
+	GenData *gendata;
+	GHashTableIter iter;
+	const char *key;
+	GVariant *val;
+	guint num;
+
+	nm_assert (NM_IS_SETTING (setting));
+	nm_assert (new);
+
+	num = new ? g_hash_table_size (new) : 0;
+
+	gendata = _gendata_hash (setting, num > 0);
+
+	if (num == 0) {
+		if (   !gendata
+		    || g_hash_table_size (gendata->hash) == 0)
+			return FALSE;
+
+		g_hash_table_remove_all (gendata->hash);
+		_nm_setting_gendata_notify (setting, TRUE);
+		return TRUE;
+	}
+
+	/* let's not bother to find out whether the new hash has any different
+	 * content the the current gendata. Just replace it. */
+	g_hash_table_remove_all (gendata->hash);
+	if (num > 0) {
+		g_hash_table_iter_init (&iter, new);
+		while (g_hash_table_iter_next (&iter, (gpointer *) &key, (gpointer *) &val))
+			g_hash_table_insert (gendata->hash, g_strdup (key), g_variant_ref (val));
+	}
+	_nm_setting_gendata_notify (setting, TRUE);
+	return TRUE;
+}
+
+/*****************************************************************************/
+
 static void
 nm_setting_init (NMSetting *setting)
 {
@@ -2054,15 +2295,30 @@ get_property (GObject *object, guint prop_id,
 }
 
 static void
+finalize (GObject *object)
+{
+	NMSettingPrivate *priv = NM_SETTING_GET_PRIVATE (object);
+
+	if (priv->gendata) {
+		g_free (priv->gendata->names);
+		g_free (priv->gendata->values);
+		g_hash_table_unref (priv->gendata->hash);
+		g_slice_free (GenData, priv->gendata);
+	}
+
+	G_OBJECT_CLASS (nm_setting_parent_class)->finalize (object);
+}
+
+static void
 nm_setting_class_init (NMSettingClass *setting_class)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
 
 	g_type_class_add_private (setting_class, sizeof (NMSettingPrivate));
 
-	/* virtual methods */
 	object_class->constructed  = constructed;
 	object_class->get_property = get_property;
+	object_class->finalize = finalize;
 
 	setting_class->update_one_secret = update_one_secret;
 	setting_class->get_secret_flags = get_secret_flags;

@@ -1388,6 +1388,9 @@ global:
 	nm_device_6lowpan_get_type;
 	nm_device_wpan_get_type;
 	nm_setting_6lowpan_get_type;
+	nm_setting_gendata_get;
+	nm_setting_gendata_get_all_names;
+	nm_setting_gendata_get_all_values;
 	nm_setting_sriov_add_vf;
 	nm_setting_sriov_clear_vfs;
 	nm_setting_sriov_get_autoprobe_drivers;

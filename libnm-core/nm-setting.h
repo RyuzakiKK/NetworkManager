@@ -282,7 +282,8 @@ void        nm_setting_enumerate_values (NMSetting *setting,
 
 char       *nm_setting_to_string      (NMSetting *setting);
 
-/* Secrets */
+/*****************************************************************************/
+
 gboolean    nm_setting_get_secret_flags (NMSetting *setting,
                                          const char *secret_name,
                                          NMSettingSecretFlags *out_flags,
@@ -293,9 +294,25 @@ gboolean    nm_setting_set_secret_flags (NMSetting *setting,
                                          NMSettingSecretFlags flags,
                                          GError **error);
 
-/* Properties */
+/*****************************************************************************/
+
 const GVariantType *nm_setting_get_dbus_property_type (NMSetting *setting,
                                                        const char *property_name);
+
+/*****************************************************************************/
+
+NM_AVAILABLE_IN_1_14
+GVariant         *nm_setting_gendata_get (NMSetting *setting,
+                                          const char *name);
+
+NM_AVAILABLE_IN_1_14
+const char *const*nm_setting_gendata_get_all_names (NMSetting *setting,
+                                                    guint *out_len);
+
+NM_AVAILABLE_IN_1_14
+GVariant *const*nm_setting_gendata_get_all_values (NMSetting *setting);
+
+/*****************************************************************************/
 
 G_END_DECLS
 
