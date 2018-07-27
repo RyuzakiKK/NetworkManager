@@ -35,8 +35,7 @@
  * cable and DSL modems and some mobile broadband devices.
  **/
 
-G_DEFINE_TYPE_WITH_CODE (NMSettingPpp, nm_setting_ppp, NM_TYPE_SETTING,
-                         _nm_register_setting (PPP, NM_SETTING_PRIORITY_AUX))
+G_DEFINE_TYPE (NMSettingPpp, nm_setting_ppp, NM_TYPE_SETTING)
 
 #define NM_SETTING_PPP_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), NM_TYPE_SETTING_PPP, NMSettingPppPrivate))
 
@@ -524,19 +523,19 @@ get_property (GObject *object, guint prop_id,
 }
 
 static void
-nm_setting_ppp_class_init (NMSettingPppClass *setting_class)
+nm_setting_ppp_class_init (NMSettingPppClass *self_class)
 {
-	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
-	NMSettingClass *parent_class = NM_SETTING_CLASS (setting_class);
+	GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+	NMSettingClass *setting_class = NM_SETTING_CLASS (self_class);
 
-	g_type_class_add_private (setting_class, sizeof (NMSettingPppPrivate));
+	g_type_class_add_private (self_class, sizeof (NMSettingPppPrivate));
 
-	/* virtual methods */
 	object_class->set_property = set_property;
 	object_class->get_property = get_property;
-	parent_class->verify       = verify;
 
-	/* Properties */
+	setting_class->setting_info = &nm_meta_setting_infos[NM_META_SETTING_TYPE_PPP];
+	setting_class->verify       = verify;
+
 	/**
 	 * NMSettingPpp:noauth:
 	 *

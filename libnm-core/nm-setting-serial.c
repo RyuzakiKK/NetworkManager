@@ -37,8 +37,7 @@
  * such as mobile broadband or analog telephone connections.
  **/
 
-G_DEFINE_TYPE_WITH_CODE (NMSettingSerial, nm_setting_serial, NM_TYPE_SETTING,
-                         _nm_register_setting (SERIAL, NM_SETTING_PRIORITY_HW_AUX))
+G_DEFINE_TYPE (NMSettingSerial, nm_setting_serial, NM_TYPE_SETTING)
 
 #define NM_SETTING_SERIAL_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), NM_TYPE_SETTING_SERIAL, NMSettingSerialPrivate))
 
@@ -237,18 +236,17 @@ get_property (GObject *object, guint prop_id,
 }
 
 static void
-nm_setting_serial_class_init (NMSettingSerialClass *setting_class)
+nm_setting_serial_class_init (NMSettingSerialClass *self_class)
 {
-	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
-	NMSettingClass *parent_class = NM_SETTING_CLASS (setting_class);
+	GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+	NMSettingClass *setting_class = NM_SETTING_CLASS (self_class);
 
-	g_type_class_add_private (setting_class, sizeof (NMSettingSerialPrivate));
+	g_type_class_add_private (self_class, sizeof (NMSettingSerialPrivate));
 
-	/* virtual methods */
 	object_class->set_property = set_property;
 	object_class->get_property = get_property;
 
-	/* Properties */
+	setting_class->setting_info = &nm_meta_setting_infos[NM_META_SETTING_TYPE_SERIAL];
 
 	/**
 	 * NMSettingSerial:baud:
@@ -306,7 +304,7 @@ nm_setting_serial_class_init (NMSettingSerialClass *setting_class)
 		                    G_PARAM_READWRITE |
 		                    G_PARAM_CONSTRUCT |
 		                    G_PARAM_STATIC_STRINGS));
-	_nm_setting_class_transform_property (parent_class,
+	_nm_setting_class_transform_property (setting_class,
 	                                      NM_SETTING_SERIAL_PARITY,
 	                                      G_VARIANT_TYPE_BYTE,
 	                                      parity_to_dbus,

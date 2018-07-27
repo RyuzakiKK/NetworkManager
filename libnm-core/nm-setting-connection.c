@@ -45,8 +45,7 @@
  * a #NMSettingConnection setting.
  **/
 
-G_DEFINE_TYPE_WITH_CODE (NMSettingConnection, nm_setting_connection, NM_TYPE_SETTING,
-                         _nm_register_setting (CONNECTION, NM_SETTING_PRIORITY_CONNECTION))
+G_DEFINE_TYPE (NMSettingConnection, nm_setting_connection, NM_TYPE_SETTING)
 
 #define NM_SETTING_CONNECTION_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), NM_TYPE_SETTING_CONNECTION, NMSettingConnectionPrivate))
 
@@ -1466,21 +1465,20 @@ get_property (GObject *object, guint prop_id,
 }
 
 static void
-nm_setting_connection_class_init (NMSettingConnectionClass *setting_class)
+nm_setting_connection_class_init (NMSettingConnectionClass *self_class)
 {
-	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
-	NMSettingClass *parent_class = NM_SETTING_CLASS (setting_class);
+	GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+	NMSettingClass *setting_class = NM_SETTING_CLASS (self_class);
 
-	g_type_class_add_private (setting_class, sizeof (NMSettingConnectionPrivate));
+	g_type_class_add_private (self_class, sizeof (NMSettingConnectionPrivate));
 
-	/* virtual methods */
 	object_class->set_property = set_property;
 	object_class->get_property = get_property;
 	object_class->finalize     = finalize;
-	parent_class->verify       = verify;
-	parent_class->compare_property = compare_property;
 
-	/* Properties */
+	setting_class->setting_info = &nm_meta_setting_infos[NM_META_SETTING_TYPE_CONNECTION];
+	setting_class->verify       = verify;
+	setting_class->compare_property = compare_property;
 
 	/**
 	 * NMSettingConnection:id:
@@ -1617,7 +1615,7 @@ nm_setting_connection_class_init (NMSettingConnectionClass *setting_class)
 		                      G_PARAM_READWRITE |
 		                      NM_SETTING_PARAM_INFERRABLE |
 		                      G_PARAM_STATIC_STRINGS));
-	_nm_setting_class_override_property (parent_class, NM_SETTING_CONNECTION_INTERFACE_NAME,
+	_nm_setting_class_override_property (setting_class, NM_SETTING_CONNECTION_INTERFACE_NAME,
 	                                     G_VARIANT_TYPE_STRING,
 	                                     NULL,
 	                                     nm_setting_connection_set_interface_name,

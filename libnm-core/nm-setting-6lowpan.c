@@ -51,8 +51,7 @@ struct _NMSetting6LowpanClass {
  * necessary for connection to 6LoWPAN interfaces.
  **/
 
-G_DEFINE_TYPE_WITH_CODE (NMSetting6Lowpan, nm_setting_6lowpan, NM_TYPE_SETTING,
-                         _nm_register_setting (6LOWPAN, NM_SETTING_PRIORITY_HW_BASE))
+G_DEFINE_TYPE (NMSetting6Lowpan, nm_setting_6lowpan, NM_TYPE_SETTING)
 
 #define NM_SETTING_6LOWPAN_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), NM_TYPE_SETTING_6LOWPAN, NMSetting6LowpanPrivate))
 
@@ -196,17 +195,19 @@ finalize (GObject *object)
 }
 
 static void
-nm_setting_6lowpan_class_init (NMSetting6LowpanClass *setting_class)
+nm_setting_6lowpan_class_init (NMSetting6LowpanClass *self_class)
 {
-	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
-	NMSettingClass *parent_class = NM_SETTING_CLASS (setting_class);
+	GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+	NMSettingClass *setting_class = NM_SETTING_CLASS (self_class);
 
-	g_type_class_add_private (setting_class, sizeof (NMSetting6LowpanPrivate));
+	g_type_class_add_private (self_class, sizeof (NMSetting6LowpanPrivate));
 
 	object_class->set_property = set_property;
 	object_class->get_property = get_property;
 	object_class->finalize     = finalize;
-	parent_class->verify       = verify;
+
+	setting_class->setting_info = &nm_meta_setting_infos[NM_META_SETTING_TYPE_6LOWPAN];
+	setting_class->verify       = verify;
 
 	/**
 	 * NMSetting6Lowpan:parent:

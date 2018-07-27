@@ -72,8 +72,6 @@ nm_meta_setting_info_editor_find_by_gtype (GType gtype)
 
 	setting_info = &nm_meta_setting_infos_editor[meta_setting_info->meta_type];
 
-	g_return_val_if_fail (setting_info->general == meta_setting_info, NULL);
-
 	return setting_info;
 }
 

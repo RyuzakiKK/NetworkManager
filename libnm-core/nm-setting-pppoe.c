@@ -38,8 +38,7 @@
  * to provide IP transport, for example cable or DSL modems.
  **/
 
-G_DEFINE_TYPE_WITH_CODE (NMSettingPppoe, nm_setting_pppoe, NM_TYPE_SETTING,
-                         _nm_register_setting (PPPOE, NM_SETTING_PRIORITY_AUX))
+G_DEFINE_TYPE (NMSettingPppoe, nm_setting_pppoe, NM_TYPE_SETTING)
 
 #define NM_SETTING_PPPOE_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), NM_TYPE_SETTING_PPPOE, NMSettingPppoePrivate))
 
@@ -287,21 +286,21 @@ finalize (GObject *object)
 }
 
 static void
-nm_setting_pppoe_class_init (NMSettingPppoeClass *setting_class)
+nm_setting_pppoe_class_init (NMSettingPppoeClass *self_class)
 {
-	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
-	NMSettingClass *parent_class = NM_SETTING_CLASS (setting_class);
+	GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+	NMSettingClass *setting_class = NM_SETTING_CLASS (self_class);
 
-	g_type_class_add_private (setting_class, sizeof (NMSettingPppoePrivate));
+	g_type_class_add_private (self_class, sizeof (NMSettingPppoePrivate));
 
-	/* virtual methods */
 	object_class->set_property = set_property;
 	object_class->get_property = get_property;
 	object_class->finalize     = finalize;
-	parent_class->verify       = verify;
-	parent_class->need_secrets = need_secrets;
 
-	/* Properties */
+	setting_class->setting_info = &nm_meta_setting_infos[NM_META_SETTING_TYPE_PPPOE];
+	setting_class->verify       = verify;
+	setting_class->need_secrets = need_secrets;
+
 	/**
 	 * NMSettingPppoe:parent:
 	 *

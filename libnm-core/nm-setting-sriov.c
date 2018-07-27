@@ -42,8 +42,7 @@ struct _NMSettingSriovClass {
 	NMSettingClass parent;
 };
 
-G_DEFINE_TYPE_WITH_CODE (NMSettingSriov, nm_setting_sriov, NM_TYPE_SETTING,
-                         _nm_register_setting (SRIOV, NM_SETTING_PRIORITY_HW_AUX))
+G_DEFINE_TYPE (NMSettingSriov, nm_setting_sriov, NM_TYPE_SETTING)
 
 enum {
 	PROP_0,
@@ -1197,7 +1196,7 @@ compare_property (NMSetting *setting,
 {
 	NMSettingSriov *a = NM_SETTING_SRIOV (setting);
 	NMSettingSriov *b = NM_SETTING_SRIOV (other);
-	NMSettingClass *parent_class;
+	NMSettingClass *setting_class;
 	guint i;
 
 	if (nm_streq (prop_spec->name, NM_SETTING_SRIOV_VFS)) {
@@ -1210,9 +1209,8 @@ compare_property (NMSetting *setting,
 		return TRUE;
 	}
 
-	/* Otherwise chain up to parent to handle generic compare */
-	parent_class = NM_SETTING_CLASS (nm_setting_sriov_parent_class);
-	return parent_class->compare_property (setting, other, prop_spec, flags);
+	setting_class = NM_SETTING_CLASS (nm_setting_sriov_parent_class);
+	return setting_class->compare_property (setting, other, prop_spec, flags);
 }
 
 static void
@@ -1232,16 +1230,18 @@ finalize (GObject *object)
 }
 
 static void
-nm_setting_sriov_class_init (NMSettingSriovClass *setting_class)
+nm_setting_sriov_class_init (NMSettingSriovClass *self_class)
 {
-	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
-	NMSettingClass *parent_class = NM_SETTING_CLASS (setting_class);
+	GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+	NMSettingClass *setting_class = NM_SETTING_CLASS (self_class);
 
 	object_class->finalize         = finalize;
 	object_class->get_property     = get_property;
 	object_class->set_property     = set_property;
-	parent_class->compare_property = compare_property;
-	parent_class->verify           = verify;
+
+	setting_class->setting_info = &nm_meta_setting_infos[NM_META_SETTING_TYPE_SRIOV];
+	setting_class->compare_property = compare_property;
+	setting_class->verify           = verify;
 
 	/**
 	 * NMSettingSriov:total-vfs
@@ -1308,7 +1308,7 @@ nm_setting_sriov_class_init (NMSettingSriovClass *setting_class)
 		                     NM_SETTING_PARAM_INFERRABLE |
 		                     G_PARAM_STATIC_STRINGS));
 
-	_nm_setting_class_override_property (parent_class,
+	_nm_setting_class_override_property (setting_class,
 	                                     NM_SETTING_SRIOV_VFS,
 	                                     G_VARIANT_TYPE ("aa{sv}"),
 	                                     vfs_to_dbus,

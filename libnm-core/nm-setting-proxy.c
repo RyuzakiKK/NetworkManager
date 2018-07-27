@@ -39,8 +39,7 @@
  * to fulfill client queries.
  **/
 
-G_DEFINE_TYPE_WITH_CODE (NMSettingProxy, nm_setting_proxy, NM_TYPE_SETTING,
-                         _nm_register_setting (PROXY, NM_SETTING_PRIORITY_IP))
+G_DEFINE_TYPE (NMSettingProxy, nm_setting_proxy, NM_TYPE_SETTING)
 
 #define NM_SETTING_PROXY_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), NM_TYPE_SETTING_PROXY, NMSettingProxyPrivate))
 
@@ -284,18 +283,19 @@ set_property (GObject *object, guint prop_id,
 }
 
 static void
-nm_setting_proxy_class_init (NMSettingProxyClass *setting_class)
+nm_setting_proxy_class_init (NMSettingProxyClass *self_class)
 {
-	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
-	NMSettingClass *parent_class = NM_SETTING_CLASS (setting_class);
+	GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+	NMSettingClass *setting_class = NM_SETTING_CLASS (self_class);
 
-	g_type_class_add_private (setting_class, sizeof (NMSettingProxyPrivate));
+	g_type_class_add_private (self_class, sizeof (NMSettingProxyPrivate));
 
-	/* virtual methods */
 	object_class->set_property = set_property;
 	object_class->get_property = get_property;
 	object_class->finalize = finalize;
-	parent_class->verify = verify;
+
+	setting_class->setting_info = &nm_meta_setting_infos[NM_META_SETTING_TYPE_PROXY];
+	setting_class->verify = verify;
 
 	/**
 	 * NMSettingProxy:method:

@@ -65,8 +65,7 @@ struct _NMSettingOvsPortClass {
 	NMSettingClass parent;
 };
 
-G_DEFINE_TYPE_WITH_CODE (NMSettingOvsPort, nm_setting_ovs_port, NM_TYPE_SETTING,
-                         _nm_register_setting (OVS_PORT, NM_SETTING_PRIORITY_HW_BASE))
+G_DEFINE_TYPE (NMSettingOvsPort, nm_setting_ovs_port, NM_TYPE_SETTING)
 
 /*****************************************************************************/
 
@@ -360,15 +359,17 @@ finalize (GObject *object)
 }
 
 static void
-nm_setting_ovs_port_class_init (NMSettingOvsPortClass *setting_class)
+nm_setting_ovs_port_class_init (NMSettingOvsPortClass *self_class)
 {
-	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
-	NMSettingClass *parent_class = NM_SETTING_CLASS (setting_class);
+	GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+	NMSettingClass *setting_class = NM_SETTING_CLASS (self_class);
 
 	object_class->set_property = set_property;
 	object_class->get_property = get_property;
 	object_class->finalize = finalize;
-	parent_class->verify = verify;
+
+	setting_class->setting_info = &nm_meta_setting_infos[NM_META_SETTING_TYPE_OVS_PORT];
+	setting_class->verify = verify;
 
 	/**
 	 * NMSettingOvsPort:vlan-mode:

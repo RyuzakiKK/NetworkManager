@@ -38,8 +38,7 @@
  * networks, including those using GPRS/EDGE and UMTS/HSPA technology.
  */
 
-G_DEFINE_TYPE_WITH_CODE (NMSettingGsm, nm_setting_gsm, NM_TYPE_SETTING,
-                         _nm_register_setting (GSM, NM_SETTING_PRIORITY_HW_BASE))
+G_DEFINE_TYPE (NMSettingGsm, nm_setting_gsm, NM_TYPE_SETTING)
 
 #define NM_SETTING_GSM_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), NM_TYPE_SETTING_GSM, NMSettingGsmPrivate))
 
@@ -603,22 +602,21 @@ get_property (GObject *object, guint prop_id,
 }
 
 static void
-nm_setting_gsm_class_init (NMSettingGsmClass *setting_class)
+nm_setting_gsm_class_init (NMSettingGsmClass *self_class)
 {
-	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
-	NMSettingClass *parent_class = NM_SETTING_CLASS (setting_class);
+	GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+	NMSettingClass *setting_class = NM_SETTING_CLASS (self_class);
 
-	g_type_class_add_private (setting_class, sizeof (NMSettingGsmPrivate));
+	g_type_class_add_private (self_class, sizeof (NMSettingGsmPrivate));
 
-	/* virtual methods */
 	object_class->set_property = set_property;
 	object_class->get_property = get_property;
 	object_class->finalize     = finalize;
-	parent_class->verify       = verify;
-	parent_class->verify_secrets = verify_secrets;
-	parent_class->need_secrets = need_secrets;
 
-	/* Properties */
+	setting_class->setting_info   = &nm_meta_setting_infos[NM_META_SETTING_TYPE_GSM];
+	setting_class->verify         = verify;
+	setting_class->verify_secrets = verify_secrets;
+	setting_class->need_secrets   = need_secrets;
 
 	/**
 	 * NMSettingGsm:number:
@@ -821,10 +819,10 @@ nm_setting_gsm_class_init (NMSettingGsmClass *setting_class)
 		                    G_PARAM_STATIC_STRINGS));
 
 	/* Ignore incoming deprecated properties */
-	_nm_setting_class_add_dbus_only_property (parent_class, "allowed-bands",
+	_nm_setting_class_add_dbus_only_property (setting_class, "allowed-bands",
 	                                          G_VARIANT_TYPE_UINT32,
 	                                          NULL, NULL);
-	_nm_setting_class_add_dbus_only_property (parent_class, "network-type",
+	_nm_setting_class_add_dbus_only_property (setting_class, "network-type",
 	                                          G_VARIANT_TYPE_INT32,
 	                                          NULL, NULL);
 }

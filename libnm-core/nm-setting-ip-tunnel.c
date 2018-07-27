@@ -30,8 +30,7 @@
  * @short_description: Describes connection properties for IP tunnel devices
  **/
 
-G_DEFINE_TYPE_WITH_CODE (NMSettingIPTunnel, nm_setting_ip_tunnel, NM_TYPE_SETTING,
-                         _nm_register_setting (IP_TUNNEL, NM_SETTING_PRIORITY_HW_BASE))
+G_DEFINE_TYPE (NMSettingIPTunnel, nm_setting_ip_tunnel, NM_TYPE_SETTING)
 
 #define NM_SETTING_IP_TUNNEL_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), NM_TYPE_SETTING_IP_TUNNEL, NMSettingIPTunnelPrivate))
 
@@ -622,18 +621,19 @@ finalize (GObject *object)
 }
 
 static void
-nm_setting_ip_tunnel_class_init (NMSettingIPTunnelClass *setting_class)
+nm_setting_ip_tunnel_class_init (NMSettingIPTunnelClass *self_class)
 {
-	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
-	NMSettingClass *parent_class = NM_SETTING_CLASS (setting_class);
+	GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+	NMSettingClass *setting_class = NM_SETTING_CLASS (self_class);
 
-	g_type_class_add_private (setting_class, sizeof (NMSettingIPTunnelPrivate));
+	g_type_class_add_private (self_class, sizeof (NMSettingIPTunnelPrivate));
 
-	/* virtual methods */
 	object_class->set_property = set_property;
 	object_class->get_property = get_property;
 	object_class->finalize     = finalize;
-	parent_class->verify       = verify;
+
+	setting_class->setting_info = &nm_meta_setting_infos[NM_META_SETTING_TYPE_IP_TUNNEL];
+	setting_class->verify       = verify;
 
 	/**
 	 * NMSettingIPTunnel:parent:

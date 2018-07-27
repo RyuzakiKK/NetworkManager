@@ -38,8 +38,7 @@
  * necessary for bridging connections.
  **/
 
-G_DEFINE_TYPE_WITH_CODE (NMSettingBridge, nm_setting_bridge, NM_TYPE_SETTING,
-                         _nm_register_setting (BRIDGE, NM_SETTING_PRIORITY_HW_BASE))
+G_DEFINE_TYPE (NMSettingBridge, nm_setting_bridge, NM_TYPE_SETTING)
 
 #define NM_SETTING_BRIDGE_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), NM_TYPE_SETTING_BRIDGE, NMSettingBridgePrivate))
 
@@ -392,20 +391,20 @@ get_property (GObject *object, guint prop_id,
 }
 
 static void
-nm_setting_bridge_class_init (NMSettingBridgeClass *setting_class)
+nm_setting_bridge_class_init (NMSettingBridgeClass *self_class)
 {
-	GObjectClass *object_class = G_OBJECT_CLASS (setting_class);
-	NMSettingClass *parent_class = NM_SETTING_CLASS (setting_class);
+	GObjectClass *object_class = G_OBJECT_CLASS (self_class);
+	NMSettingClass *setting_class = NM_SETTING_CLASS (self_class);
 
-	g_type_class_add_private (setting_class, sizeof (NMSettingBridgePrivate));
+	g_type_class_add_private (self_class, sizeof (NMSettingBridgePrivate));
 
-	/* virtual methods */
 	object_class->set_property = set_property;
 	object_class->get_property = get_property;
 	object_class->finalize     = finalize;
-	parent_class->verify       = verify;
 
-	/* Properties */
+	setting_class->setting_info = &nm_meta_setting_infos[NM_META_SETTING_TYPE_BRIDGE];
+	setting_class->verify       = verify;
+
 	/**
 	 * NMSettingBridge:mac-address:
 	 *
@@ -443,7 +442,7 @@ nm_setting_bridge_class_init (NMSettingBridgeClass *setting_class)
 		                      G_PARAM_READWRITE |
 		                      NM_SETTING_PARAM_INFERRABLE |
 		                      G_PARAM_STATIC_STRINGS));
-	_nm_setting_class_transform_property (parent_class, NM_SETTING_BRIDGE_MAC_ADDRESS,
+	_nm_setting_class_transform_property (setting_class, NM_SETTING_BRIDGE_MAC_ADDRESS,
 	                                      G_VARIANT_TYPE_BYTESTRING,
 	                                      _nm_utils_hwaddr_to_dbus,
 	                                      _nm_utils_hwaddr_from_dbus);
@@ -637,7 +636,7 @@ nm_setting_bridge_class_init (NMSettingBridgeClass *setting_class)
 	 *   bridge's interface name.
 	 * ---end---
 	 */
-	_nm_setting_class_add_dbus_only_property (parent_class, "interface-name",
+	_nm_setting_class_add_dbus_only_property (setting_class, "interface-name",
 	                                          G_VARIANT_TYPE_STRING,
 	                                          _nm_setting_get_deprecated_virtual_interface_name,
 	                                          NULL);

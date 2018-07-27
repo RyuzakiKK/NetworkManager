@@ -40,8 +40,7 @@
  * necessary for connection to Ethernet networks.
  **/
 
-G_DEFINE_TYPE_WITH_CODE (NMSettingWired, nm_setting_wired, NM_TYPE_SETTING,
-                         _nm_register_setting (WIRED, NM_SETTING_PRIORITY_HW_BASE))
+G_DEFINE_TYPE (NMSettingWired, nm_setting_wired, NM_TYPE_SETTING)
 
 #define NM_SETTING_WIRED_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), NM_TYPE_SETTING_WIRED, NMSettingWiredPrivate))
 
@@ -782,15 +781,15 @@ compare_property (NMSetting *setting,
                   const GParamSpec *prop_spec,
                   NMSettingCompareFlags flags)
 {
-	NMSettingClass *parent_class;
+	NMSettingClass *setting_class;
 
 	if (nm_streq (prop_spec->name, NM_SETTING_WIRED_CLONED_MAC_ADDRESS)) {
 		return nm_streq0 (NM_SETTING_WIRED_GET_PRIVATE (setting)->cloned_mac_address,
 		                  NM_SETTING_WIRED_GET_PRIVATE (other)->cloned_mac_address);
 	}
 
-	parent_class = NM_SETTING_CLASS (nm_setting_wired_parent_class);
-	return parent_class->compare_property (setting, other, prop_spec, flags);
+	setting_class = NM_SETTING_CLASS (nm_setting_wired_parent_class);
+	return setting_class->compare_property (setting, other, prop_spec, flags);
 }
 
 static GVariant *
@@ -984,14 +983,14 @@ nm_setting_wired_class_init (NMSettingWiredClass *setting_wired_class)
 
 	g_type_class_add_private (setting_wired_class, sizeof (NMSettingWiredPrivate));
 
-	/* virtual methods */
 	object_class->set_property = set_property;
 	object_class->get_property = get_property;
 	object_class->finalize     = finalize;
+
+	setting_class->setting_info = &nm_meta_setting_infos[NM_META_SETTING_TYPE_WIRED];
 	setting_class->verify      = verify;
 	setting_class->compare_property = compare_property;
 
-	/* Properties */
 	/**
 	 * NMSettingWired:port:
 	 *
